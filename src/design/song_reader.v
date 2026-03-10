@@ -44,107 +44,128 @@ module song_reader(
     
     //track song changes
     reg [1:0] song_q; 
-    reg end_after_current_note;
+    wire is_end = (song_word == 16'hFFFF);
     
     // TODO: update to play whatever note should be on at that moment 
     // think about whether i need a larger restructuring 
     // does the current implementation automaticlaly advance or is it run on a similar model where we need to add instructions to do so
     always @(posedge clk) begin
-        if (reset) begin
-            state <= WAIT_DONE;
-            song_q <= song;
-            song_addr <= {song, 5'd0}; 
-            end_after_current_note <= 1'b0;
+    if (reset) begin
+        state        <= FETCH;
+        song_q       <= song;
+        song_addr    <= {song, 7'd0};   // 128 entries per song
+        wait_counter <= 6'd0;
 
-            note1 <= 6'd0;
-            duration1 <= 6'd0;
-            note2 <= 6'd0;
-            duration2 <= 6'd0;
-            note3 <= 6'd0;
-            duration3 <= 6'd0;
-            new_note <= 1'b0;
-            song_done <= 1'b0;
+        valid        <= 1'b0;
+        note         <= 6'd0;
+        duration     <= 6'd0;
+        meta         <= 3'd0;
+        song_done    <= 1'b0;
+
+    end else begin
+        // default pulse 
+        valid     <= 1'b0;
+        song_done <= 1'b0;
+
+        // restart if the user changes songs
+        if (song != song_q) begin
+            song_q       <= song; // new song
+            song_addr    <= {song, 7'd0};
+            wait_counter <= 6'd0;
+
+            valid        <= 1'b0;
+            note         <= 6'd0;
+            duration     <= 6'd0;
+            meta         <= 3'd0;
+            song_done    <= 1'b0;
+
+            state <= FETCH;
+
         end else begin
-            new_note <= 1'b0;
-            song_done <= 1'b0;
-            
-            // user incremented to the next song --> reset song addr and state
-            if(song != song_q) begin 
-                song_q <= song;
-                song_addr <= {song, 5'd0};
-                end_after_current_note <= 1'b0;
-                state <= WAIT_DONE;
-            end 
-            // TODO: update with the new states 
-            case(state)
-            // wait until the current playing note is done
-                WAIT_DONE: begin
-                    // Wait for note_player to be ready
+            case (state)
+
+                IDLE: begin
                     if (!play) begin
-                        state <= WAIT_DONE;
-                    end else if (note_done) begin
-                        state <= WAIT_ROM;
-                    end
-                end
-                
-                // wait until the next note is done being read from the ROM and data is ready
-                WAIT_ROM: begin
-                    // Wait for ROM Data to be valid
-                    if (!play) begin
-                        state <= WAIT_ROM;
+                        state <= IDLE;
                     end else begin
-                        state <= READ_AND_LOAD;
+                        state <= FETCH;
                     end
                 end
-                
-                // get the next note and prep it to be played
-                // TODO: understand better what exactly I am reading from the ROM 
+
+                // address to the synchronous ROM
+                // on the next cycle, song_word is ready to decode
+                FETCH: begin
+                    if (!play) begin
+                        state <= FETCH;
+                    end else begin
+                        state <= DECODE;
+                    end
+                end
+
+                // decode the current ROM
                 DECODE: begin
                     if (!play) begin
-                        state <= READ_AND_LOAD;
-                    end else if (rom_dur == 6'd0) begin
-                        state <= SONG_DONE;
-                    end else begin
-                    // TOOO: update this so it can read multiple notes from rom_note??? 
-                    // or in general how should i handle this, waht if there r more than 3, how exacltly is note_player reading this
-                        note1 <= rom_note;
-                        duration1 <= rom_dur;
-                        new_note <= 1'b1;
-                        // if the lower 5 bits are 31 then this is the last note of the song 
-                        end_after_current_note <= (song_addr[4:0] == 5'd31);
+                        state <= DECODE;
 
-                        // Increment address inside current song block only.
-                        if (song_addr[4:0] != 5'd31) begin
-                            song_addr <= song_addr + 7'd1;
+                    end else if (is_end) begin
+                        state <= DONE;
+
+                    end else if (is_wait) begin
+                        // wait event, advance song time by rom_dur 48th note ticks rather than scheduling a note
+                        wait_counter <= rom_dur;
+
+                        // move to next ROM entry now
+                        song_addr <= song_addr + 9'd1;
+
+                        // zero wait can just continue immediately
+                        if (rom_dur == 6'd0) begin
+                            state <= FETCH;
+                        end else begin
+                            state <= WAITING;
                         end
-                        
-                        state <= WAIT_BUSY;
-                    end
-                end
 
-                WAIT_BUSY: begin
-                    // wait 1 cycle here to allow the note_player to see new_note
-                    if (end_after_current_note) begin
-                        end_after_current_note <= 1'b0;
-                        state <= SONG_DONE;
                     end else begin
-                        state <= WAIT_DONE;
+                        // note scheduled
+                        note     <= rom_note;
+                        duration <= rom_dur;
+                        meta     <= rom_meta;
+                        valid    <= 1'b1;
+
+                        // go to next ROM entry
+                        song_addr <= song_addr + 9'd1;
+                        state <= FETCH;
                     end
                 end
 
-                DECODE: begin
-                    new_note <= 1'b0;
+                // wait while musical time advances, wait_counter decrements on tick_48th
+                WAITING: begin
+                    if (!play) begin
+                        state <= WAITING;
+
+                    end else if (tick_48th) begin
+                        if (wait_counter <= 6'd1) begin
+                            wait_counter <= 6'd0;
+                            state <= FETCH;
+                        end else begin
+                            wait_counter <= wait_counter - 6'd1;
+                            state <= WAITING;
+                        end
+
+                    end else begin
+                        state <= WAITING;
+                    end
+                end
+
+                DONE: begin
                     song_done <= 1'b1;
-                    // Stay here until reset
-                    state <= SONG_DONE;
+                    state <= DONE;
                 end
-                
-                // if entering invalid state 
+
                 default: begin
-                    state <= WAIT_DONE;
+                    state <= FETCH;
                 end
-                
             endcase
         end
-   end
+    end
+end
 endmodule

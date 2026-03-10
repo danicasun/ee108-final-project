@@ -1,7 +1,7 @@
 `timescale 1ns / 1ps
 
 module voice_allocator #(
-    parameter NUM_VOICES = 4
+    parameter NUM_VOICES = 4 // how many does our FPGA limit us to??
 )(
     input clk,
     input reset,
