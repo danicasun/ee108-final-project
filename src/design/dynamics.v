@@ -21,6 +21,16 @@
 
 
 module dynamics(
+    input clk, 
+    input reset, 
+    input load,
+    input active, 
+    input note_done, 
+    input [2:0] meta, 
+    input [15:0] sample_in, 
+    output reg [15:0] sample_out, 
+    output reg env_done
+);
 
-    );
+
 endmodule
