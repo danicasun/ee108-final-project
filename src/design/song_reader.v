@@ -10,7 +10,9 @@ module song_reader(
     output reg [2:0] meta,
     output reg song_done
 );
-
+    // TODO add an output for future note that note display can read from 
+    // TODO add an output for past notes??? or just keep past notes ons creen innote display for multiple cycles 
+    
     reg [8:0] song_addr;
 
     wire [15:0] song_word;
@@ -53,7 +55,7 @@ module song_reader(
     if (reset) begin
         state        <= FETCH;
         song_q       <= song;
-        song_addr    <= {song, 7'd0};   // 128 entries per song
+        song_addr    <= {song, 7'd0};  // 128 entries per song
         wait_counter <= 6'd0;
 
         valid        <= 1'b0;

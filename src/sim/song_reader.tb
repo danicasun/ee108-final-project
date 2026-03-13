@@ -1,0 +1,291 @@
+`timescale 1ns/1ps
+
+module song_reader_tb;
+
+    reg clk;
+    reg reset;
+    reg play;
+    reg [1:0] song;
+    reg tick_48th;
+
+    wire valid;
+    wire [5:0] note;
+    wire [5:0] duration;
+    wire [2:0] meta;
+    wire song_done;
+
+    song_reader dut (
+        .clk(clk),
+        .reset(reset),
+        .play(play),
+        .song(song),
+        .tick_48th(tick_48th),
+        .valid(valid),
+        .note(note),
+        .duration(duration),
+        .meta(meta),
+        .song_done(song_done)
+    );
+
+    initial clk = 1'b0;
+    always #5 clk = ~clk;
+
+    task fail;
+        input [255:0] message;
+        begin
+            $display("FAIL: %0s", message);
+            $finish;
+        end
+    endtask
+
+    task pulse_tick48th;
+        begin
+            @(negedge clk);
+            tick_48th = 1'b1;
+            @(posedge clk);
+            #1;
+            @(negedge clk);
+            tick_48th = 1'b0;
+        end
+    endtask
+
+    task check_note_pulse;
+        input [5:0] expected_note;
+        input [5:0] expected_duration;
+        input [2:0] expected_meta;
+        input [6:0] expected_next_addr;
+        begin
+            @(posedge clk);
+            #1;
+            if (valid !== 1'b1) begin
+                fail("expected valid pulse for NOTE event");
+            end
+            if (note !== expected_note ||
+                duration !== expected_duration ||
+                meta !== expected_meta) begin
+                fail("NOTE output fields incorrect");
+            end
+            if (dut.song_addr !== expected_next_addr) begin
+                fail("song_addr did not advance correctly after NOTE");
+            end
+
+            @(posedge clk);
+            #1;
+            if (valid !== 1'b0) begin
+                fail("valid should only pulse for one cycle");
+            end
+        end
+    endtask
+
+    task check_wait_loaded;
+        input [5:0] expected_wait;
+        input [6:0] expected_next_addr;
+        begin
+            @(posedge clk);
+            #1;
+            if (dut.state !== dut.WAITING) begin
+                fail("WAIT event did not enter WAITING state");
+            end
+            if (dut.wait_counter !== expected_wait) begin
+                fail("wait_counter did not load expected WAIT duration");
+            end
+            if (dut.song_addr !== expected_next_addr) begin
+                fail("song_addr did not advance correctly after WAIT");
+            end
+            if (valid !== 1'b0) begin
+                fail("WAIT should not assert valid");
+            end
+        end
+    endtask
+
+    task consume_wait;
+        input integer ticks;
+        integer i;
+        begin
+            for (i = 0; i < ticks-1; i = i + 1) begin
+                pulse_tick48th();
+                if (dut.state !== dut.WAITING) begin
+                    fail("state left WAITING too early");
+                end
+            end
+
+            pulse_tick48th();
+            if (dut.state !== dut.FETCH) begin
+                fail("WAITING did not return to FETCH on final tick");
+            end
+            if (dut.wait_counter !== 6'd0) begin
+                fail("wait_counter did not clear after final wait tick");
+            end
+        end
+    endtask
+
+    initial begin
+        reset = 1'b1;
+        play = 1'b0;
+        song = 2'd0;
+        tick_48th = 1'b0;
+
+        repeat (3) @(posedge clk);
+        reset = 1'b0;
+        @(posedge clk);
+        #1;
+
+        // --------------------------
+        // Reset checks
+        // --------------------------
+        if (valid !== 1'b0 || song_done !== 1'b0) begin
+            fail("reset did not clear output pulses");
+        end
+
+        // With ROM aligned DUT, song 0 should start at addr 0
+        if (dut.song_addr !== 7'd0) begin
+            fail("song 0 base address should be 0");
+        end
+
+        // --------------------------
+        // play=0 should stall in FETCH
+        // --------------------------
+        @(posedge clk);
+        #1;
+        if (dut.state !== dut.FETCH) begin
+            fail("FETCH should hold when play=0");
+        end
+
+        // --------------------------
+        // Start song 0
+        // memory[0] = NOTE 49,12,0
+        // memory[1] = WAIT 12
+        // memory[2] = NOTE 51,12,0
+        // --------------------------
+        play = 1'b1;
+
+        @(posedge clk); #1; // FETCH -> DECODE
+        if (dut.state !== dut.DECODE) begin
+            fail("did not advance to DECODE after play asserted");
+        end
+
+        check_note_pulse(6'd49, 6'd12, 3'd0, 7'd1);
+
+        @(posedge clk); #1; // FETCH -> DECODE
+        if (dut.state !== dut.DECODE) begin
+            fail("did not enter DECODE for WAIT event");
+        end
+
+        check_wait_loaded(6'd12, 7'd2);
+
+        // no tick: should remain waiting
+        @(posedge clk); #1;
+        if (dut.state !== dut.WAITING || dut.wait_counter !== 6'd12) begin
+            fail("WAITING should hold without tick_48th");
+        end
+
+        // pause during waiting
+        play = 1'b0;
+        pulse_tick48th();
+        if (dut.state !== dut.WAITING || dut.wait_counter !== 6'd12) begin
+            fail("WAITING should freeze when play=0");
+        end
+
+        // resume and finish wait
+        play = 1'b1;
+        consume_wait(12);
+
+        @(posedge clk); #1; // FETCH -> DECODE
+        if (dut.state !== dut.DECODE) begin
+            fail("did not re-enter DECODE after WAIT finished");
+        end
+
+        check_note_pulse(6'd51, 6'd12, 3'd0, 7'd3);
+
+        // --------------------------
+        // Song switch test
+        // song 1 base should be 32
+        // memory[32] = NOTE 40,12,0
+        // memory[33] = NOTE 44,12,0
+        // memory[34] = NOTE 47,12,0
+        // --------------------------
+        song = 2'd1;
+        @(posedge clk);
+        #1;
+
+        if (dut.state !== dut.FETCH) begin
+            fail("song change should force FETCH");
+        end
+        if (dut.song_addr !== 7'd32) begin
+            fail("song 1 base address should be 32");
+        end
+        if (dut.wait_counter !== 6'd0) begin
+            fail("song change should clear wait_counter");
+        end
+        if (song_done !== 1'b0 || valid !== 1'b0) begin
+            fail("song change should clear pulses");
+        end
+
+        @(posedge clk); #1; // FETCH -> DECODE
+        check_note_pulse(6'd40, 6'd12, 3'd0, 7'd33);
+
+        @(posedge clk); #1; // FETCH -> DECODE
+        check_note_pulse(6'd44, 6'd12, 3'd0, 7'd34);
+
+        @(posedge clk); #1; // FETCH -> DECODE
+        check_note_pulse(6'd47, 6'd12, 3'd0, 7'd35);
+
+        // memory[35] = WAIT 12
+        @(posedge clk); #1; // FETCH -> DECODE
+        check_wait_loaded(6'd12, 7'd36);
+
+        // --------------------------
+        // Song 3 end test
+        // base = 96
+        // walk first few entries, then jump near end behavior naturally
+        // --------------------------
+        song = 2'd3;
+        @(posedge clk);
+        #1;
+
+        if (dut.song_addr !== 7'd96) begin
+            fail("song 3 base address should be 96");
+        end
+
+        @(posedge clk); #1; // FETCH -> DECODE
+        check_note_pulse(6'd42, 6'd12, 3'd0, 7'd97);
+
+        @(posedge clk); #1; // FETCH -> DECODE
+        check_wait_loaded(6'd12, 7'd98);
+        consume_wait(12);
+
+        // Now verify DONE by forcing addr near the end through natural playback:
+        // switch back to song 0 and verify the final END there instead
+        song = 2'd0;
+        @(posedge clk);
+        #1;
+        if (dut.song_addr !== 7'd0) begin
+            fail("song switch back to 0 failed");
+        end
+
+        // Fast-forward internal addr only for end-state verification
+        // This is acceptable in TB to specifically test END handling.
+        @(negedge clk);
+        dut.song_addr = 7'd31;   // memory[31] = END
+        dut.state = dut.DECODE;
+
+        @(posedge clk);
+        #1;
+        if (dut.state !== dut.DONE) begin
+            fail("END marker did not move state to DONE");
+        end
+        if (song_done !== 1'b0) begin
+            fail("song_done should not assert until DONE state cycle");
+        end
+
+        @(posedge clk);
+        #1;
+        if (dut.state !== dut.DONE || song_done !== 1'b1) begin
+            fail("DONE state did not assert song_done");
+        end
+
+        $display("PASS: song_reader matches posted ROM layout and correctly handles NOTE, WAIT, song select, and END.");
+        $finish;
+    end
+
+endmodule

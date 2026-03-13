@@ -35,9 +35,12 @@ module multi_voice_player#(
     input schedule_note,
     output reg [15:0] out, 
     output reg [NUM_VOICES-1:0] voices_active,
+    output reg [5:0] note0,
+    output reg [5:0] note1,
+    output reg [5:0] note2,
+    output reg [5:0] note3,
     output reg [NUM_VOICES-1:0] load_voice
 );
-    reg [5:0] note0, note1, note2, note3;
     reg [5:0] dur0, dur1, dur2, dur3;
     reg [2:0] meta0, meta1, meta2, meta3;
     
