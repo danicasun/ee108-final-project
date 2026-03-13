@@ -50,6 +50,17 @@ module multi_voice_player_tb;
         end
     endtask
 
+    task pulse_gen_next;
+        begin
+            @(negedge clk);
+            gen_next = 1'b1;
+            @(posedge clk);
+            #1;
+            @(negedge clk);
+            gen_next = 1'b0;
+        end
+    endtask
+
     task schedule_note_and_check;
         input [5:0] note_value;
         input [5:0] duration_value;
@@ -77,6 +88,33 @@ module multi_voice_player_tb;
         end
     endtask
 
+    function integer sample_to_int;
+        input [15:0] sample_bits;
+        begin
+            sample_to_int = $signed(sample_bits);
+        end
+    endfunction
+
+    task check_mix_matches_internal;
+        integer mix_sum;
+        integer expected_out;
+        begin
+            mix_sum = 0;
+            if (voices_active[0]) mix_sum = mix_sum + sample_to_int(dut.dyn0);
+            if (voices_active[1]) mix_sum = mix_sum + sample_to_int(dut.dyn1);
+            if (voices_active[2]) mix_sum = mix_sum + sample_to_int(dut.dyn2);
+            if (voices_active[3]) mix_sum = mix_sum + sample_to_int(dut.dyn3);
+            expected_out = mix_sum >>> 2;
+
+            if ($signed(out) !== expected_out[15:0]) begin
+                fail("output mix does not match the internal voice sum");
+            end
+        end
+    endtask
+
+    integer wait_cycles;
+    reg saw_negative_dyn;
+
     initial begin
         reset = 1'b1;
         note_in = 6'd0;
@@ -100,8 +138,8 @@ module multi_voice_player_tb;
             fail("voice 0 did not capture the first scheduled note");
         end
 
-        schedule_note_and_check(6'd12, 6'd5, 3'd2, 4'b0011, 4'b0010);
-        if (dut.note1 !== 6'd12 || dut.dur1 !== 6'd5 || dut.meta1 !== 3'd2) begin
+        schedule_note_and_check(6'd12, 6'd1, 3'd2, 4'b0011, 4'b0010);
+        if (dut.note1 !== 6'd12 || dut.dur1 !== 6'd1 || dut.meta1 !== 3'd2) begin
             fail("voice 1 did not capture the second scheduled note");
         end
 
@@ -129,42 +167,45 @@ module multi_voice_player_tb;
         schedule_note = 1'b0;
 
         pulse_tick48th();
-        if (dut.dur0 !== 6'd3 || dut.dur1 !== 6'd4 || dut.dur2 !== 6'd5 || dut.dur3 !== 6'd6) begin
+        if (dut.dur0 !== 6'd3 || dut.dur1 !== 6'd0 || dut.dur2 !== 6'd5 || dut.dur3 !== 6'd6) begin
             fail("tick48th did not decrement all active durations");
         end
 
-        force dut.dyn0 = 16'sd4000;
-        force dut.dyn1 = -16'sd2000;
-        force dut.dyn2 = 16'sd8000;
-        force dut.dyn3 = 16'sd0;
-        @(posedge clk);
-        #1;
-        if ($signed(out) !== 16'sd2500) begin
-            fail("mixed output did not average all four voice samples");
+        repeat (8) pulse_gen_next();
+        repeat (4) begin
+            @(posedge clk);
+            #1;
+            if (out !== 16'd0) begin
+                check_mix_matches_internal();
+            end
         end
 
-        force dut.dyn0 = -16'sd4000;
-        force dut.dyn1 = 16'sd0;
-        force dut.dyn2 = 16'sd0;
-        force dut.dyn3 = 16'sd0;
-        @(posedge clk);
-        #1;
-        if ($signed(out) !== -16'sd1000) begin
-            fail("mixed output did not preserve signed samples");
+        saw_negative_dyn = 1'b0;
+        repeat (16) begin
+            pulse_gen_next();
+            @(posedge clk);
+            #1;
+            if ($signed(dut.dyn0) < 0 || $signed(dut.dyn1) < 0 ||
+                $signed(dut.dyn2) < 0 || $signed(dut.dyn3) < 0) begin
+                saw_negative_dyn = 1'b1;
+                check_mix_matches_internal();
+            end
         end
 
-        release dut.dyn0;
-        release dut.dyn1;
-        release dut.dyn2;
-        release dut.dyn3;
+        if (!saw_negative_dyn) begin
+            fail("did not observe a negative voice sample during mix testing");
+        end
 
-        force dut.envdone1 = 1'b1;
-        @(posedge clk);
-        #1;
+        wait_cycles = 0;
+        while (voices_active[1] && wait_cycles < 16) begin
+            @(posedge clk);
+            #1;
+            wait_cycles = wait_cycles + 1;
+        end
+
         if (voices_active !== 4'b1101 || dut.dur1 !== 6'd0) begin
-            fail("env_done should free the finished voice");
+            fail("voice 1 did not release after note completion");
         end
-        release dut.envdone1;
 
         schedule_note_and_check(6'd20, 6'd9, 3'd6, 4'b1111, 4'b0010);
         if (dut.note1 !== 6'd20 || dut.dur1 !== 6'd9 || dut.meta1 !== 3'd6) begin
