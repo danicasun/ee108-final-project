@@ -1,3 +1,5 @@
+`timescale 1ns/1ps
+
 module song_reader(
     input clk,
     input reset,
@@ -23,7 +25,6 @@ module song_reader(
     
     reg [5:0] wait_counter;
     
-    // TODO: edit the song rom to output the new note format 
     // instance to retrieve from the song rom
     song_rom rom (
         .clk(clk),
@@ -31,7 +32,7 @@ module song_reader(
         .dout(song_word)
     );
     
-    // TODO: update states & also double check that the new ones in the doc are correct
+    // TODO: update states & also double check that the new ones in the doc are correct + new FSM
     // updated states:
     // do I need a wait_busy and wait_done and wait_rom? how were we able to condense to just waiting
     localparam IDLE      = 3'd0;

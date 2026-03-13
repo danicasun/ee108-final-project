@@ -1,3 +1,5 @@
+`timescale 1ns/1ps
+
 // How to use:
 // 1. Edit the songs on the Enter Song sheet.
 // 2. Each row is one event.
