@@ -95,10 +95,10 @@ module multi_voice_player#(
         .sample_ready(hr3)
     );
     
-    wire noted_0 = tick48th && voices_active[0] && (dur0 == 6'd1);
-    wire noted_1 = tick48th && voices_active[1] && (dur1 == 6'd1);
-    wire noted_2 = tick48th && voices_active[2] && (dur2 == 6'd1);
-    wire noted_3 = tick48th && voices_active[3] && (dur3 == 6'd1);
+    wire note_done0 = tick48th && voices_active[0] && (dur0 == 6'd1);
+    wire note_done1 = tick48th && voices_active[1] && (dur1 == 6'd1);
+    wire note_done2 = tick48th && voices_active[2] && (dur2 == 6'd1);
+    wire note_done3 = tick48th && voices_active[3] && (dur3 == 6'd1);
     
     wire [15:0] dyn0, dyn1, dyn2, dyn3;
     wire envdone0, envdone1, envdone2, envdone3;
@@ -172,9 +172,9 @@ module multi_voice_player#(
             
             if (tick48th) begin
                 if (voices_active[0] && dur0 != 0) dur0 <= dur0 - 1'b1;
-                if (voices_active[1] && dur1 != 1) dur1 <= dur1 - 1'b1;
-                if (voices_active[2] && dur2 != 2) dur2 <= dur2 - 1'b1;
-                if (voices_active[3] && dur3 != 3) dur3 <= dur3 - 1'b1;
+                if (voices_active[1] && dur1 != 0) dur1 <= dur1 - 1'b1;
+                if (voices_active[2] && dur2 != 0) dur2 <= dur2 - 1'b1;
+                if (voices_active[3] && dur3 != 0) dur3 <= dur3 - 1'b1;
             end
             
             if (envdone0) begin
@@ -228,17 +228,22 @@ module multi_voice_player#(
     end
     
     //mix the sum
-    wire[17:0] mix_sum = 
-     (voices_active[0] ? {2'b00, dyn0} : 18'd0) + 
-     (voices_active[1] ? {2'b00, dyn1} : 18'd0) + 
-     (voices_active[2] ? {2'b00, dyn1} : 18'd0) + 
-     (voices_active[3] ? {2'b00, dyn1} : 18'd0);
+    wire signed [15:0] dyn0_signed = dyn0;
+    wire signed [15:0] dyn1_signed = dyn1;
+    wire signed [15:0] dyn2_signed = dyn2;
+    wire signed [15:0] dyn3_signed = dyn3;
+    wire signed [17:0] mix_sum = 
+     (voices_active[0] ? {{2{dyn0_signed[15]}}, dyn0_signed} : 18'sd0) + 
+     (voices_active[1] ? {{2{dyn1_signed[15]}}, dyn1_signed} : 18'sd0) + 
+     (voices_active[2] ? {{2{dyn2_signed[15]}}, dyn2_signed} : 18'sd0) + 
+     (voices_active[3] ? {{2{dyn3_signed[15]}}, dyn3_signed} : 18'sd0);
+    wire signed [17:0] mix_avg = mix_sum >>> 2;
 
     always @(posedge clk) begin
         if (reset) begin
             out <= 16'd0;
         end else begin
-            out <= mix_sum[17:2];
+            out <= mix_avg[15:0];
         end
     end
 

@@ -62,7 +62,8 @@ sine_reader h4(
 );
 
 //weights based on meta
-reg w1, w2, w3, w4;
+localparam WEIGHT_W = W_SHIFT + 1;
+reg [WEIGHT_W-1:0] w1, w2, w3, w4;
 
 always @(*) begin
     case (meta) 
@@ -125,14 +126,20 @@ end
 
 //sum
 localparam MIX_W = SAMPLE_W + 8;
-wire [MIX_W-1:0] p1 = s1 * w1;
-wire [MIX_W-1:0] p2 = s2 * w2;
-wire [MIX_W-1:0] p3 = s3 * w3;
-wire [MIX_W-1:0] p4 = s4 * w4;
+wire signed [SAMPLE_W-1:0] s1_signed = s1;
+wire signed [SAMPLE_W-1:0] s2_signed = s2;
+wire signed [SAMPLE_W-1:0] s3_signed = s3;
+wire signed [SAMPLE_W-1:0] s4_signed = s4;
+wire signed [MIX_W-1:0] p1 = $signed(s1_signed) * $signed({1'b0, w1});
+wire signed [MIX_W-1:0] p2 = $signed(s2_signed) * $signed({1'b0, w2});
+wire signed [MIX_W-1:0] p3 = $signed(s3_signed) * $signed({1'b0, w3});
+wire signed [MIX_W-1:0] p4 = $signed(s4_signed) * $signed({1'b0, w4});
 
-wire [MIX_W-1:0] mixsum = p1 + p2 + p3 + p4;
-wire [MIX_W-1:0] mix_scale = mixsum >> W_SHIFT;
+wire signed [MIX_W-1:0] mixsum = p1 + p2 + p3 + p4;
+wire signed [MIX_W-1:0] mix_scale = mixsum >>> W_SHIFT;
 wire mix_valid = r1 & r2 & r3 & r4;
+localparam signed [SAMPLE_W-1:0] SAMPLE_MAX = {1'b0, {(SAMPLE_W-1){1'b1}}};
+localparam signed [SAMPLE_W-1:0] SAMPLE_MIN = {1'b1, {(SAMPLE_W-1){1'b0}}};
 
 //output reg
 always @(posedge clk) begin
@@ -145,10 +152,13 @@ always @(posedge clk) begin
         if (!active) begin
             sample <= 0;
         end else if (mix_valid) begin
-            if(|mix_scale[MIX_W-1:SAMPLE_W]) begin
-                sample <= {SAMPLE_W{1'b1}};
-            end else
+            if (mix_scale > SAMPLE_MAX) begin
+                sample <= SAMPLE_MAX;
+            end else if (mix_scale < SAMPLE_MIN) begin
+                sample <= SAMPLE_MIN;
+            end else begin
                 sample <= mix_scale[SAMPLE_W-1:0];
+            end
             sample_ready <= 1'b1;
         end  
     end
