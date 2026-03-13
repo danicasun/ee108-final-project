@@ -215,6 +215,8 @@ module harmonics_tb;
         meta = 3'b000;
         checked_samples = 0;
         saw_harmonic_difference = 1'b0;
+        expected_mix = 0;
+        expected_sample = 16'd0;
 
         repeat (3) @(posedge clk);
         reset = 1'b0;

@@ -123,6 +123,8 @@ module multi_voice_player_tb;
         gen_next = 1'b0;
         tick48th = 1'b0;
         schedule_note = 1'b0;
+        wait_cycles = 0;
+        saw_negative_dyn = 1'b0;
 
         repeat (3) @(posedge clk);
         reset = 1'b0;

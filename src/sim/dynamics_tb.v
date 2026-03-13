@@ -57,6 +57,7 @@ module dynamics_tb;
         note_done = 1'b0;
         meta = 3'd0;
         sample_in = 16'sd4096;
+        release_cycles = 0;
 
         repeat (3) tick();
         reset = 1'b0;
