@@ -100,37 +100,49 @@ module effects_mixer #(
     reg signed [ACCUM_WIDTH-1:0] left_voice_term;
     reg signed [ACCUM_WIDTH-1:0] right_voice_term;
 
-    always @(*) begin
-        mono_mix_next = {ACCUM_WIDTH{1'b0}};
-        left_mix_next = {ACCUM_WIDTH{1'b0}};
-        right_mix_next = {ACCUM_WIDTH{1'b0}};
+    generate
+        if (ENABLE_PANNING != 0) begin : gen_panned_mix
+            always @(*) begin
+                mono_mix_next = {ACCUM_WIDTH{1'b0}};
+                left_mix_next = {ACCUM_WIDTH{1'b0}};
+                right_mix_next = {ACCUM_WIDTH{1'b0}};
 
-        for (voice_index = 0; voice_index < NUM_VOICES; voice_index = voice_index + 1) begin
-            current_voice_sample = unpack_sample(voice_samples, voice_index);
-            current_pan = unpack_pan(voice_pan, voice_index);
-            left_gain = PAN_FULL_SCALE - current_pan;
-            right_gain = current_pan;
-            left_voice_term = {ACCUM_WIDTH{1'b0}};
-            right_voice_term = {ACCUM_WIDTH{1'b0}};
+                for (voice_index = 0; voice_index < NUM_VOICES; voice_index = voice_index + 1) begin
+                    current_voice_sample = unpack_sample(voice_samples, voice_index);
+                    current_pan = unpack_pan(voice_pan, voice_index);
+                    left_gain = PAN_FULL_SCALE - current_pan;
+                    right_gain = current_pan;
+                    left_voice_term =
+                        ($signed(current_voice_sample) * $signed({1'b0, left_gain})) >>> PAN_WIDTH;
+                    right_voice_term =
+                        ($signed(current_voice_sample) * $signed({1'b0, right_gain})) >>> PAN_WIDTH;
 
-            if (ENABLE_PANNING != 0) begin
-                left_voice_term =
-                    ($signed(current_voice_sample) * $signed({1'b0, left_gain})) >>> PAN_WIDTH;
-                right_voice_term =
-                    ($signed(current_voice_sample) * $signed({1'b0, right_gain})) >>> PAN_WIDTH;
-            end
-
-            if (voice_active[voice_index]) begin
-                mono_mix_next = mono_mix_next + ($signed(current_voice_sample) >>> MIX_SHIFT);
-                if (ENABLE_PANNING != 0) begin
-                    left_mix_next = left_mix_next + (left_voice_term >>> MIX_SHIFT);
-                    right_mix_next = right_mix_next + (right_voice_term >>> MIX_SHIFT);
-                end else begin
-                    left_mix_next = left_mix_next + ($signed(current_voice_sample) >>> MIX_SHIFT);
+                    if (voice_active[voice_index]) begin
+                        mono_mix_next = mono_mix_next + ($signed(current_voice_sample) >>> MIX_SHIFT);
+                        left_mix_next = left_mix_next + (left_voice_term >>> MIX_SHIFT);
+                        right_mix_next = right_mix_next + (right_voice_term >>> MIX_SHIFT);
+                    end
                 end
             end
+        end else begin : gen_mono_mix
+            always @(*) begin
+                mono_mix_next = {ACCUM_WIDTH{1'b0}};
+                left_mix_next = {ACCUM_WIDTH{1'b0}};
+                right_mix_next = {ACCUM_WIDTH{1'b0}};
+
+                for (voice_index = 0; voice_index < NUM_VOICES; voice_index = voice_index + 1) begin
+                    current_voice_sample = unpack_sample(voice_samples, voice_index);
+
+                    if (voice_active[voice_index]) begin
+                        mono_mix_next = mono_mix_next + ($signed(current_voice_sample) >>> MIX_SHIFT);
+                    end
+                end
+
+                // In checkpoint mono mode the left output is just the dry mono mix.
+                left_mix_next = mono_mix_next;
+            end
         end
-    end
+    endgenerate
 
     wire signed [SAMPLE_WIDTH-1:0] dry_mono_sample = clip_sample(mono_mix_next);
     wire echo_has_valid_sample;
