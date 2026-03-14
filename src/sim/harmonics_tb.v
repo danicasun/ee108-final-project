@@ -8,6 +8,7 @@ module harmonics_tb;
     reg clk;
     reg reset;
     reg active;
+    reg restart_phase;
     reg gen_next;
     reg [PHASE_W-1:0] step_size;
     reg [2:0] meta;
@@ -32,6 +33,7 @@ module harmonics_tb;
     ) dut (
         .clk(clk),
         .reset(reset),
+        .restart_phase(restart_phase),
         .active(active),
         .gen_next(gen_next),
         .step_size(step_size),
@@ -43,6 +45,7 @@ module harmonics_tb;
     sine_reader ref1 (
         .clk(clk),
         .reset(reset),
+        .restart_phase(restart_phase),
         .step_size(step1),
         .generate_next(do_gen),
         .sample_ready(ref_r1),
@@ -52,6 +55,7 @@ module harmonics_tb;
     sine_reader ref2 (
         .clk(clk),
         .reset(reset),
+        .restart_phase(restart_phase),
         .step_size(step2),
         .generate_next(do_gen),
         .sample_ready(ref_r2),
@@ -61,6 +65,7 @@ module harmonics_tb;
     sine_reader ref3 (
         .clk(clk),
         .reset(reset),
+        .restart_phase(restart_phase),
         .step_size(step3),
         .generate_next(do_gen),
         .sample_ready(ref_r3),
@@ -70,6 +75,7 @@ module harmonics_tb;
     sine_reader ref4 (
         .clk(clk),
         .reset(reset),
+        .restart_phase(restart_phase),
         .step_size(step4),
         .generate_next(do_gen),
         .sample_ready(ref_r4),
@@ -93,6 +99,17 @@ module harmonics_tb;
             gen_next = 1'b1;
             @(negedge clk);
             gen_next = 1'b0;
+        end
+    endtask
+
+    task pulse_restart_phase;
+        begin
+            @(negedge clk);
+            restart_phase = 1'b1;
+            @(posedge clk);
+            #1;
+            @(negedge clk);
+            restart_phase = 1'b0;
         end
     endtask
 
@@ -224,6 +241,7 @@ module harmonics_tb;
     initial begin
         reset = 1'b1;
         active = 1'b0;
+        restart_phase = 1'b0;
         gen_next = 1'b0;
         step_size = 20'd4096;
         meta = 3'b000;
@@ -276,6 +294,19 @@ module harmonics_tb;
 
         if (!saw_harmonic_difference) begin
             fail("multi-harmonic meta setting never differed from the fundamental-only output");
+        end
+
+        pulse_restart_phase();
+        repeat (2) @(posedge clk);
+        if (sample_ready !== 1'b0) begin
+            fail("restart_phase should clear pending sample_ready pulses");
+        end
+
+        checked_samples = 0;
+        repeat (4) pulse_gen_next();
+        repeat (4) @(posedge clk);
+        if (checked_samples < 2) begin
+            fail("harmonics did not resume cleanly after phase restart");
         end
 
         active = 1'b0;

@@ -34,6 +34,7 @@ module multi_voice_player#(
     input tick48th, 
     input schedule_note,
     output [15:0] out,
+    output sample_ready,
     output reg [NUM_VOICES-1:0] voices_active,
     output reg [5:0] note0,
     output reg [5:0] note1,
@@ -82,6 +83,7 @@ module multi_voice_player#(
     harmonics #(.PHASE_W(20), .SAMPLE_W(16), .W_SHIFT(5)) h0 (
         .clk(clk), 
         .reset(reset), 
+        .restart_phase(load_voice[0]),
         .active(voices_active[0]),
         .gen_next(gen_next), 
         .step_size(step0), 
@@ -93,6 +95,7 @@ module multi_voice_player#(
      harmonics #(.PHASE_W(20), .SAMPLE_W(16), .W_SHIFT(5)) h1 (
         .clk(clk), 
         .reset(reset), 
+        .restart_phase(load_voice[1]),
         .active(voices_active[1]),
         .gen_next(gen_next), 
         .step_size(step1), 
@@ -104,6 +107,7 @@ module multi_voice_player#(
      harmonics #(.PHASE_W(20), .SAMPLE_W(16), .W_SHIFT(5)) h2 (
         .clk(clk), 
         .reset(reset), 
+        .restart_phase(load_voice[2]),
         .active(voices_active[2]),
         .gen_next(gen_next), 
         .step_size(step2), 
@@ -115,6 +119,7 @@ module multi_voice_player#(
      harmonics #(.PHASE_W(20), .SAMPLE_W(16), .W_SHIFT(5)) h3 (
         .clk(clk), 
         .reset(reset), 
+        .restart_phase(load_voice[3]),
         .active(voices_active[3]),
         .gen_next(gen_next), 
         .step_size(step3), 
@@ -270,8 +275,15 @@ module multi_voice_player#(
      (voices_active[2] ? {{2{dyn2_signed[15]}}, dyn2_signed} : 18'sd0) + 
      (voices_active[3] ? {{2{dyn3_signed[15]}}, dyn3_signed} : 18'sd0);
     wire signed [17:0] mix_avg = mix_sum >>> 2;
+    wire any_voice_active = |voices_active;
+    wire active_voice_ready =
+        (voices_active[0] ? hr0 : 1'b1) &
+        (voices_active[1] ? hr1 : 1'b1) &
+        (voices_active[2] ? hr2 : 1'b1) &
+        (voices_active[3] ? hr3 : 1'b1);
     
     assign out = reset ? 16'd0 : mix_avg[15:0];
+    assign sample_ready = any_voice_active ? active_voice_ready : gen_next;
     assign voice_samples_packed = {dyn3, dyn2, dyn1, dyn0};
 
 endmodule

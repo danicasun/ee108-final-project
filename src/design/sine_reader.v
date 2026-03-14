@@ -1,6 +1,7 @@
 module sine_reader(
     input clk,
     input reset,
+    input restart_phase,
     input [19:0] step_size,
     input generate_next,
 
@@ -35,7 +36,7 @@ module sine_reader(
     );
 
     always @(posedge clk) begin
-        if (reset) begin
+        if (reset || restart_phase) begin
             phase <= 22'b0;
         end else if (generate_next) begin
 
@@ -50,7 +51,7 @@ module sine_reader(
     reg valid_1;            
 
     always @(posedge clk) begin
-        if (reset) begin
+        if (reset || restart_phase) begin
             quadrant_dly <= 2'b0;
             valid_1 <= 1'b0;
             sample_ready_dly <= 1'b0;

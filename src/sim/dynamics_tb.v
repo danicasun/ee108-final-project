@@ -62,6 +62,7 @@ module dynamics_tb;
     endtask
 
     integer release_cycles;
+    reg [11:0] meta_attack_step;
 
     initial begin
         reset = 1'b1;
@@ -161,6 +162,23 @@ module dynamics_tb;
         tick();
         if (sample_out !== 16'sd0) begin
             fail("inactive dynamics should drive sample_out to zero");
+        end
+
+        reset = 1'b1;
+        repeat (2) tick();
+        reset = 1'b0;
+        tick();
+
+        active = 1'b1;
+        meta = 3'b101;
+        meta_attack_step = 12'd64;
+        load = 1'b1;
+        tick();
+        load = 1'b0;
+
+        pulse_sample_tick();
+        if (dut.env !== meta_attack_step) begin
+            fail("meta-dependent attack step did not apply");
         end
 
         $display("PASS: dynamics ADSR load, sustain, release, and mute behavior.");

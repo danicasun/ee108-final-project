@@ -49,6 +49,7 @@ module note_player(
     sine_reader sine_gen (
         .clk(clk),
         .reset(reset),
+        .restart_phase(load_new_note),
         .step_size(effective_step_size),
         .generate_next(generate_next_sample),
         .sample_ready(new_sample_ready),

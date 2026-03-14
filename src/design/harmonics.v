@@ -5,6 +5,7 @@ module harmonics #(
 )(
     input clk, 
     input reset, 
+    input restart_phase,
     input active,
     input gen_next, 
     input [PHASE_W-1:0] step_size, 
@@ -28,6 +29,7 @@ wire r1, r2, r3, r4;
 sine_reader h1(
     .clk(clk), 
     .reset(reset),
+    .restart_phase(restart_phase),
     .step_size(step1), 
     .generate_next(do_gen), 
     .sample_ready(r1), 
@@ -37,6 +39,7 @@ sine_reader h1(
 sine_reader h2(
     .clk(clk), 
     .reset(reset),
+    .restart_phase(restart_phase),
     .step_size(step2), 
     .generate_next(do_gen), 
     .sample_ready(r2), 
@@ -46,6 +49,7 @@ sine_reader h2(
 sine_reader h3(
     .clk(clk), 
     .reset(reset),
+    .restart_phase(restart_phase),
     .step_size(step3), 
     .generate_next(do_gen), 
     .sample_ready(r3), 
@@ -55,6 +59,7 @@ sine_reader h3(
 sine_reader h4(
     .clk(clk), 
     .reset(reset),
+    .restart_phase(restart_phase),
     .step_size(step4), 
     .generate_next(do_gen), 
     .sample_ready(r4), 
@@ -146,7 +151,7 @@ parameter signed [SAMPLE_W-1:0] SAMPLE_MIN = {1'b1, {(SAMPLE_W-1){1'b0}}};
 wire signed [MIX_W-1:0] mix_scale_q = mixsum_q >>> W_SHIFT;
 
 always @(posedge clk) begin
-    if (reset || !active) begin
+    if (reset || !active || restart_phase) begin
         p1_q <= {MIX_W{1'b0}};
         p2_q <= {MIX_W{1'b0}};
         p3_q <= {MIX_W{1'b0}};
