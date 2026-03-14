@@ -135,9 +135,11 @@ wire signed [MIX_W-1:0] p2 = $signed(s2_signed) * $signed({1'b0, w2});
 wire signed [MIX_W-1:0] p3 = $signed(s3_signed) * $signed({1'b0, w3});
 wire signed [MIX_W-1:0] p4 = $signed(s4_signed) * $signed({1'b0, w4});
 
-wire signed [MIX_W-1:0] mixsum = p1 + p2 + p3 + p4;
+reg signed [MIX_W-1:0] p1_q, p2_q, p3_q, p4_q;
+wire signed [MIX_W-1:0] mixsum = p1_q + p2_q + p3_q + p4_q;
 wire mix_valid = r1 & r2 & r3 & r4;
 reg signed [MIX_W-1:0] mixsum_q;
+reg product_valid_q;
 reg mix_valid_q;
 parameter signed [SAMPLE_W-1:0] SAMPLE_MAX = {1'b0, {(SAMPLE_W-1){1'b1}}};
 parameter signed [SAMPLE_W-1:0] SAMPLE_MIN = {1'b1, {(SAMPLE_W-1){1'b0}}};
@@ -145,12 +147,25 @@ wire signed [MIX_W-1:0] mix_scale_q = mixsum_q >>> W_SHIFT;
 
 always @(posedge clk) begin
     if (reset || !active) begin
+        p1_q <= {MIX_W{1'b0}};
+        p2_q <= {MIX_W{1'b0}};
+        p3_q <= {MIX_W{1'b0}};
+        p4_q <= {MIX_W{1'b0}};
         mixsum_q <= {MIX_W{1'b0}};
+        product_valid_q <= 1'b0;
         mix_valid_q <= 1'b0;
     end else begin
-        mix_valid_q <= mix_valid;
+        product_valid_q <= mix_valid;
+        mix_valid_q <= product_valid_q;
 
         if (mix_valid) begin
+            p1_q <= p1;
+            p2_q <= p2;
+            p3_q <= p3;
+            p4_q <= p4;
+        end
+
+        if (product_valid_q) begin
             mixsum_q <= mixsum;
         end
     end
