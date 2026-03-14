@@ -27,7 +27,9 @@ module music_player(
     output wire [15:0] sample_out
 );
     parameter BEAT_COUNT = 1000;
-    parameter SAMPLE_PIPELINE_LATENCY = 4;
+    parameter SAMPLE_PIPELINE_LATENCY = 7;
+    parameter EFFECTS_INPUT_CAPTURE_DELAY = 4;
+    parameter EFFECTS_SAMPLE_DELAY = 5;
     parameter EFFECTS_NUM_VOICES = 4;
     parameter EFFECTS_PAN_WIDTH = 3;
     parameter EFFECTS_ECHO_ADDR_WIDTH = 15;
@@ -92,6 +94,8 @@ module music_player(
     wire [3:0] voices_active;
     wire [3:0] load_voice;
     wire [EFFECTS_NUM_VOICES*16-1:0] voice_samples_packed;
+    reg [3:0] effects_voice_active;
+    reg [EFFECTS_NUM_VOICES*16-1:0] effects_voice_samples;
 
     multi_voice_player multi_voice_player(
         .clk(clk),
@@ -117,6 +121,28 @@ module music_player(
     wire [15:0] mixed_sample_mono;
     wire [15:0] mixed_sample_left;
     wire [15:0] mixed_sample_right;
+    reg [SAMPLE_PIPELINE_LATENCY-1:0] sample_ready_pipe;
+    wire capture_effects_inputs = sample_ready_pipe[EFFECTS_INPUT_CAPTURE_DELAY];
+    wire effects_sample_tick = sample_ready_pipe[EFFECTS_SAMPLE_DELAY];
+    wire latch_mixed_sample = sample_ready_pipe[SAMPLE_PIPELINE_LATENCY-1];
+
+    always @(posedge clk) begin
+        if (reset | reset_player) begin
+            sample_ready_pipe <= {SAMPLE_PIPELINE_LATENCY{1'b0}};
+            effects_voice_active <= 4'd0;
+            effects_voice_samples <= {(EFFECTS_NUM_VOICES*16){1'b0}};
+        end else begin
+            sample_ready_pipe <= {
+                sample_ready_pipe[SAMPLE_PIPELINE_LATENCY-2:0],
+                generate_next_sample
+            };
+
+            if (capture_effects_inputs) begin
+                effects_voice_active <= voices_active;
+                effects_voice_samples <= voice_samples_packed;
+            end
+        end
+    end
 
     effects_mixer #(
         .NUM_VOICES(EFFECTS_NUM_VOICES),
@@ -127,9 +153,9 @@ module music_player(
     ) effects_mixer (
         .clk(clk),
         .reset(reset | reset_player),
-        .sample_tick(generate_next_sample),
-        .voice_active(voices_active),
-        .voice_samples(voice_samples_packed),
+        .sample_tick(effects_sample_tick),
+        .voice_active(effects_voice_active),
+        .voice_samples(effects_voice_samples),
         .voice_pan(voice_pan),
         .echo_enable(play),
         .echo_delay_samples(EFFECTS_ECHO_DELAY_SAMPLES),
@@ -161,21 +187,8 @@ module music_player(
 //      Codec Conditioner
 //  ****************************************************************************
 //  
-    reg [SAMPLE_PIPELINE_LATENCY-1:0] sample_ready_pipe;
-    wire latch_mixed_sample = sample_ready_pipe[SAMPLE_PIPELINE_LATENCY-1];
     wire new_sample_generated0;
     wire [15:0] sample_out0;
-
-    always @(posedge clk) begin
-        if (reset | reset_player) begin
-            sample_ready_pipe <= {SAMPLE_PIPELINE_LATENCY{1'b0}};
-        end else begin
-            sample_ready_pipe <= {
-                sample_ready_pipe[SAMPLE_PIPELINE_LATENCY-2:0],
-                generate_next_sample
-            };
-        end
-    end
 
     dffr pipeline_ff_nsg (.clk(clk), .r(reset), .d(new_sample_generated0), .q(new_sample_generated));
     assign sample_out = sample_out0;

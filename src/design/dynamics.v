@@ -14,6 +14,7 @@ module dynamics(
 
 reg [2:0] state;
 reg [11:0] env;
+reg [15:0] sample_in_q;
 
 parameter IDLE = 3'd0;
 parameter ATTACK = 3'd1;
@@ -27,7 +28,7 @@ parameter [11:0] RELEASE_STEP = 12'd512;
 parameter [11:0] SUSTAIN_LEVEL = 12'd3072;
 parameter [11:0] ENV_MAX = 12'd4095;
 
-wire signed [15:0] sample_in_signed = sample_in;
+wire signed [15:0] sample_in_signed = sample_in_q;
 wire signed [27:0] scaled_sample =
     ($signed(sample_in_signed) * $signed({1'b0, env})) >>> 12;
 
@@ -36,9 +37,11 @@ always @(posedge clk) begin
         state <= IDLE;
         env <= 12'd0;
         env_done <= 1'b0;
+        sample_in_q <= 16'd0;
         sample_out <= 16'd0;
     end else begin
         env_done <= 1'b0;
+        sample_in_q <= sample_in;
 
         if (load) begin
             state <= ATTACK;
