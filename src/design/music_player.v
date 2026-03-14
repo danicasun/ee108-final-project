@@ -28,6 +28,11 @@ module music_player(
 );
     parameter BEAT_COUNT = 1000;
     parameter SAMPLE_PIPELINE_LATENCY = 4;
+    parameter EFFECTS_NUM_VOICES = 4;
+    parameter EFFECTS_PAN_WIDTH = 3;
+    parameter EFFECTS_ECHO_ADDR_WIDTH = 15;
+    parameter EFFECTS_ECHO_DELAY_SAMPLES = 15'd6000;
+    parameter EFFECTS_ECHO_ATTEN_SHIFT = 4'd2;
 
 
 //
@@ -83,9 +88,10 @@ module music_player(
 //  
     wire generate_next_sample;
     wire generate_next_sample_raw;
-    wire [15:0] mixed_sample_raw;
+    wire [15:0] dry_sample_raw;
     wire [3:0] voices_active;
     wire [3:0] load_voice;
+    wire [EFFECTS_NUM_VOICES*16-1:0] voice_samples_packed;
 
     multi_voice_player multi_voice_player(
         .clk(clk),
@@ -96,16 +102,43 @@ module music_player(
         .gen_next(generate_next_sample),
         .tick48th(tick_48th),
         .schedule_note(schedule_note),
-        .out(mixed_sample_raw),
+        .out(dry_sample_raw),
         .voices_active(voices_active),
         .note0(),
         .note1(),
         .note2(),
         .note3(),
-        .load_voice(load_voice)
+        .load_voice(load_voice),
+        .voice_samples_packed(voice_samples_packed)
+    );
+
+    wire [EFFECTS_NUM_VOICES*EFFECTS_PAN_WIDTH-1:0] voice_pan =
+        {EFFECTS_NUM_VOICES{3'd0}};
+    wire [15:0] mixed_sample_mono;
+    wire [15:0] mixed_sample_left;
+    wire [15:0] mixed_sample_right;
+
+    effects_mixer #(
+        .NUM_VOICES(EFFECTS_NUM_VOICES),
+        .SAMPLE_WIDTH(16),
+        .PAN_WIDTH(EFFECTS_PAN_WIDTH),
+        .ECHO_ADDR_WIDTH(EFFECTS_ECHO_ADDR_WIDTH)
+    ) effects_mixer (
+        .clk(clk),
+        .reset(reset | reset_player),
+        .sample_tick(generate_next_sample),
+        .voice_active(voices_active),
+        .voice_samples(voice_samples_packed),
+        .voice_pan(voice_pan),
+        .echo_enable(play),
+        .echo_delay_samples(EFFECTS_ECHO_DELAY_SAMPLES),
+        .echo_atten_shift(EFFECTS_ECHO_ATTEN_SHIFT),
+        .mono_sample(mixed_sample_mono),
+        .left_sample(mixed_sample_left),
+        .right_sample(mixed_sample_right)
     );
     
-    wire [15:0] mixed_sample = play ? mixed_sample_raw : 16'd0;
+    wire [15:0] mixed_sample = play ? mixed_sample_left : 16'd0;
 
 //   
 //  ****************************************************************************

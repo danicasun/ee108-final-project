@@ -279,6 +279,9 @@ module song_reader_tb;
         if (song_done !== 1'b1) begin
             fail("song_done did not assert in DONE state for song 0");
         end
+
+        $display("PASS: song_reader note, wait, song-switch, and end-of-song behavior.");
+        $finish;
     end
         
 endmodule

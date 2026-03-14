@@ -33,22 +33,47 @@ module multi_voice_player#(
     input gen_next, 
     input tick48th, 
     input schedule_note,
-    output reg [15:0] out, 
+    output [15:0] out,
     output reg [NUM_VOICES-1:0] voices_active,
     output reg [5:0] note0,
     output reg [5:0] note1,
     output reg [5:0] note2,
     output reg [5:0] note3,
-    output reg [NUM_VOICES-1:0] load_voice
+    output reg [NUM_VOICES-1:0] load_voice,
+    output [NUM_VOICES*SAMPLE_W-1:0] voice_samples_packed
 );
     reg [5:0] dur0, dur1, dur2, dur3;
     reg [2:0] meta0, meta1, meta2, meta3;
     
     //steps
-    wire [19:0] step0 = {note0, 14'd0};
-    wire [19:0] step1 = {note1, 14'd0};
-    wire [19:0] step2 = {note2, 14'd0};
-    wire [19:0] step3 = {note3, 14'd0};
+    wire [19:0] step0;
+    wire [19:0] step1;
+    wire [19:0] step2;
+    wire [19:0] step3;
+
+    frequency_rom freq0 (
+        .clk(clk),
+        .addr(note0),
+        .dout(step0)
+    );
+
+    frequency_rom freq1 (
+        .clk(clk),
+        .addr(note1),
+        .dout(step1)
+    );
+
+    frequency_rom freq2 (
+        .clk(clk),
+        .addr(note2),
+        .dout(step2)
+    );
+
+    frequency_rom freq3 (
+        .clk(clk),
+        .addr(note3),
+        .dout(step3)
+    );
     
     wire[15:0] harm0, harm1, harm2, harm3;
     wire hr0, hr1, hr2, hr3;
@@ -241,13 +266,8 @@ module multi_voice_player#(
      (voices_active[2] ? {{2{dyn2_signed[15]}}, dyn2_signed} : 18'sd0) + 
      (voices_active[3] ? {{2{dyn3_signed[15]}}, dyn3_signed} : 18'sd0);
     wire signed [17:0] mix_avg = mix_sum >>> 2;
-
-    always @(posedge clk) begin
-        if (reset) begin
-            out <= 16'd0;
-        end else begin
-            out <= mix_avg[15:0];
-        end
-    end
+    
+    assign out = reset ? 16'd0 : mix_avg[15:0];
+    assign voice_samples_packed = {dyn3, dyn2, dyn1, dyn0};
 
 endmodule

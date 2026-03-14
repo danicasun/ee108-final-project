@@ -7,6 +7,7 @@ module echo_delay_bram_tb;
 
     reg clk;
     reg reset;
+    reg enable;
     reg sample_tick;
     reg signed [SAMPLE_WIDTH-1:0] sample_in;
     reg [ECHO_ADDR_WIDTH-1:0] delay_samples;
@@ -21,6 +22,7 @@ module echo_delay_bram_tb;
     ) dut (
         .clk(clk),
         .reset(reset),
+        .enable(enable),
         .sample_tick(sample_tick),
         .sample_in(sample_in),
         .delay_samples(delay_samples),
@@ -55,6 +57,7 @@ module echo_delay_bram_tb;
 
     initial begin
         reset = 1'b1;
+        enable = 1'b1;
         sample_tick = 1'b0;
         sample_in = 16'sd0;
         delay_samples = {ECHO_ADDR_WIDTH{1'b0}};

@@ -37,9 +37,9 @@ module effects_mixer #(
         end
     endfunction
 
-    localparam integer VOICE_SUM_WIDTH = clog2(NUM_VOICES + 1);
-    localparam integer ACCUM_WIDTH = SAMPLE_WIDTH + PAN_WIDTH + VOICE_SUM_WIDTH + 2;
-    localparam [PAN_WIDTH-1:0] PAN_FULL_SCALE = {PAN_WIDTH{1'b1}};
+    parameter integer VOICE_SUM_WIDTH = clog2(NUM_VOICES + 1);
+    parameter integer ACCUM_WIDTH = SAMPLE_WIDTH + PAN_WIDTH + VOICE_SUM_WIDTH + 2;
+    parameter [PAN_WIDTH-1:0] PAN_FULL_SCALE = {PAN_WIDTH{1'b1}};
 
     function signed [SAMPLE_WIDTH-1:0] unpack_sample;
         input [NUM_VOICES*SAMPLE_WIDTH-1:0] packed_samples;
@@ -138,6 +138,7 @@ module effects_mixer #(
     ) echo_ram (
         .clk(clk),
         .reset(reset),
+        .enable(echo_enable),
         .sample_tick(sample_tick),
         .sample_in(dry_mono_sample),
         .delay_samples(echo_delay_samples),

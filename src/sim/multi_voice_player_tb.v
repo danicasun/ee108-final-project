@@ -183,7 +183,7 @@ module multi_voice_player_tb;
         end
 
         saw_negative_dyn = 1'b0;
-        repeat (16) begin
+        repeat (160) begin
             pulse_gen_next();
             @(posedge clk);
             #1;
@@ -195,7 +195,7 @@ module multi_voice_player_tb;
         end
 
         if (!saw_negative_dyn) begin
-            fail("did not observe a negative voice sample during mix testing");
+            fail("did not observe a negative voice sample during the extended mix window");
         end
 
         wait_cycles = 0;
