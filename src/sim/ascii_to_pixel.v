@@ -30,7 +30,7 @@ module ascii_to_pixel(
     wire [7:0] row_bits;
     wire [8:0] rom_addr;
 
-    // map ASCII character to tcgrom character index
+    // map asciii to tcgrom character index
     always @(*) begin
         case (ascii_char)
             " ": font_char_idx = 6'd32; // space
