@@ -52,21 +52,6 @@ module codec_conditioner(
    );
    assign generate_next_sample = new_frame && ~previous_new_frame;
 
-   assign valid_sample = new_frame && previous_new_frame ? valid_sample : new_sample_in;
-
-/*
-
-   // Generate a one-pulse signal when new_frame goes high.
-   wire previous_new_frame;
-   dffre #(1) new_frame_state(
-      .clk(clk),
-      .r(reset),
-      .en(1'b1),
-      .d(new_frame),
-      .q(previous_new_frame)
-   );
-   assign generate_next_sample = new_frame && ~previous_new_frame;
-
    // The next sample we are storing so we can output it immediately on the next
    // new_frame.
    wire [15:0] next_sample_latched;
@@ -93,5 +78,4 @@ module codec_conditioner(
    // goes high we define our output to be either what we've stored or the next
    // one.
    assign valid_sample = (generate_next_sample) ? next_sample_latched : latched_current_sample;
-*/
 endmodule
