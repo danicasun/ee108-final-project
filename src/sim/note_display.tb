@@ -1,0 +1,240 @@
+`timescale 1ns / 1ps
+
+module note_display_tb;
+
+    // DUT inputs
+    reg clk;
+    reg reset;
+
+    reg [10:0] x;
+    reg [9:0]  y;
+    reg valid;
+
+    reg [3:0] voices_active;
+
+    reg [5:0] voice_note0;
+    reg [5:0] voice_note1;
+    reg [5:0] voice_note2;
+    reg [5:0] voice_note3;
+
+    reg       preview_valid;
+    reg [5:0] preview_note;
+    reg [5:0] preview_duration;
+    reg [2:0] preview_meta;
+
+    // DUT outputs
+    wire valid_pixel;
+    wire [7:0] r;
+    wire [7:0] g;
+    wire [7:0] b;
+
+    // Instantiate DUT
+    note_display dut (
+        .clk(clk),
+        .reset(reset),
+
+        .x(x),
+        .y(y),
+        .valid(valid),
+
+        .voices_active(voices_active),
+
+        .voice_note0(voice_note0),
+        .voice_note1(voice_note1),
+        .voice_note2(voice_note2),
+        .voice_note3(voice_note3),
+
+        .preview_valid(preview_valid),
+        .preview_note(preview_note),
+        .preview_duration(preview_duration),
+        .preview_meta(preview_meta),
+
+        .valid_pixel(valid_pixel),
+        .r(r),
+        .g(g),
+        .b(b)
+    );
+
+    // Clock
+    initial clk = 1'b0;
+    always #5 clk = ~clk;   // 100 MHz-style sim clock
+
+    // Helpers
+    integer lit_count;
+    integer total_checked;
+    integer xi, yi;
+
+    task reset_dut;
+    begin
+        reset = 1'b1;
+        x = 11'd0;
+        y = 10'd0;
+        valid = 1'b0;
+
+        voices_active = 4'b0000;
+        voice_note0 = 6'd0;
+        voice_note1 = 6'd0;
+        voice_note2 = 6'd0;
+        voice_note3 = 6'd0;
+
+        preview_valid = 1'b0;
+        preview_note = 6'd0;
+        preview_duration = 6'd0;
+        preview_meta = 3'd0;
+
+        #20;
+        reset = 1'b0;
+        #20;
+    end
+    endtask
+
+    // Scan a rectangular region and count lit pixels
+    task scan_region;
+        input [10:0] x_start;
+        input [10:0] x_end;
+        input [9:0]  y_start;
+        input [9:0]  y_end;
+        input [255:0] label;
+    begin
+        lit_count = 0;
+        total_checked = 0;
+
+        $display("--------------------------------------------------");
+        $display("SCAN: %0s", label);
+        $display("Region x=[%0d:%0d], y=[%0d:%0d]", x_start, x_end, y_start, y_end);
+
+        for (yi = y_start; yi <= y_end; yi = yi + 1) begin
+            for (xi = x_start; xi <= x_end; xi = xi + 1) begin
+                x = xi[10:0];
+                y = yi[9:0];
+                valid = 1'b1;
+                #1;
+
+                total_checked = total_checked + 1;
+
+                if (valid_pixel) begin
+                    lit_count = lit_count + 1;
+                    // Optional detailed trace:
+                    // $display("  pixel ON at (%0d,%0d) rgb=(%h,%h,%h)", x, y, r, g, b);
+                end
+            end
+        end
+
+        $display("Pixels checked = %0d, lit pixels = %0d", total_checked, lit_count);
+        if (lit_count == 0)
+            $display("WARNING: no lit pixels found in scanned region");
+    end
+    endtask
+
+    // Check a single point should be off
+    task check_pixel_off;
+        input [10:0] px;
+        input [9:0]  py;
+        input [255:0] label;
+    begin
+        x = px;
+        y = py;
+        valid = 1'b1;
+        #1;
+        if (valid_pixel !== 1'b0) begin
+            $display("ERROR: expected pixel OFF at (%0d,%0d) for %0s", px, py, label);
+        end else begin
+            $display("PASS: pixel OFF at (%0d,%0d) for %0s", px, py, label);
+        end
+    end
+    endtask
+
+    // Check scan region should contain some lit pixels
+    task expect_some_pixels;
+        input [10:0] x_start;
+        input [10:0] x_end;
+        input [9:0]  y_start;
+        input [9:0]  y_end;
+        input [255:0] label;
+    begin
+        scan_region(x_start, x_end, y_start, y_end, label);
+        if (lit_count == 0) begin
+            $display("ERROR: expected SOME lit pixels for %0s, found none", label);
+        end else begin
+            $display("PASS: found lit pixels for %0s", label);
+        end
+    end
+    endtask
+
+
+    initial begin
+        $display("Starting note_display checkpoint 1 testbench...");
+        reset_dut;
+
+        // Test 0: outside text box should be blank
+        check_pixel_off(11'd10, 10'd10, "outside text region");
+        check_pixel_off(11'd50, 10'd300, "outside text region");
+
+        // Test 1: all voices inactive
+        // Expect to still see jsut the labels "V0: -- " etc.
+        voices_active = 4'b0000;
+        voice_note0 = 6'd49;  // irrelevant when inactive
+        voice_note1 = 6'd40;
+        voice_note2 = 6'd54;
+        voice_note3 = 6'd46;
+        #10;
+
+        // Scan the whole note display box approximately
+        expect_some_pixels(11'd120, 11'd175, 10'd60, 10'd107, "all voices inactive text box");
+
+        // Test 2: one active voice (voice 0 = 5A)
+        voices_active = 4'b0001;
+        voice_note0 = 6'd49;  // 5A
+        voice_note1 = 6'd0;
+        voice_note2 = 6'd0;
+        voice_note3 = 6'd0;
+        #10;
+
+        expect_some_pixels(11'd120, 11'd175, 10'd60, 10'd71, "line 0 active: V0: 5A");
+
+        // Test 3: chord / multiple active voices
+        voices_active = 4'b0111;
+        voice_note0 = 6'd40;  // 4C
+        voice_note1 = 6'd44;  // 4E
+        voice_note2 = 6'd47;  // 4G
+        voice_note3 = 6'd0;
+        #10;
+
+        expect_some_pixels(11'd120, 11'd175, 10'd60, 10'd95, "3 active voices chord");
+
+        // Test 4: sharp note on one line
+        voices_active = 4'b1000;
+        voice_note0 = 6'd0;
+        voice_note1 = 6'd0;
+        voice_note2 = 6'd0;
+        voice_note3 = 6'd46;  // 4F#
+        #10;
+
+        expect_some_pixels(11'd120, 11'd175, 10'd96, 10'd107, "line 3 active: sharp note");
+
+        // Test 5: valid=0 should suppress output everywhere
+        valid = 1'b0;
+        x = 11'd130;
+        y = 10'd65;
+        #1;
+        if (valid_pixel !== 1'b0) begin
+            $display("ERROR: valid_pixel should be 0 when valid=0");
+        end else begin
+            $display("PASS: valid_pixel suppressed when valid=0");
+        end
+
+        // restore valid
+        valid = 1'b1;
+
+        // Test 6: sample a few points outside the expected char rows
+        // The note_display line spacing is 12 with glyph rows only in top 8
+        // Check a gap row where text should be off.
+        check_pixel_off(11'd125, 10'd68 + 8, "line-gap region near first row");
+        check_pixel_off(11'd140, 10'd80 + 8, "line-gap region near second row");
+
+        $display("--------------------------------------------------");
+        $display("note_display checkpoint 1 testbench complete.");
+        $finish;
+    end
+
+endmodule
