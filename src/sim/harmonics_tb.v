@@ -176,12 +176,29 @@ module harmonics_tb;
     reg [15:0] expected_sample;
     integer checked_samples;
     reg saw_harmonic_difference;
+    reg expected_valid_d;
+    reg [15:0] expected_sample_d;
 
     always @(posedge clk) begin
         #1;
-        if (!reset && sample_ready && !(active && ref_valid)) begin
+        if (!reset && sample_ready && !expected_valid_d) begin
             fail("sample_ready asserted without aligned reference samples");
         end
+
+        if (!reset && expected_valid_d) begin
+            if (sample_ready !== 1'b1) begin
+                fail("harmonics missed a valid mixed sample");
+            end
+
+            if ($signed(sample) !== $signed(expected_sample_d)) begin
+                fail("harmonics sample does not match the weighted reference mix");
+            end
+
+            checked_samples = checked_samples + 1;
+        end
+
+        expected_valid_d = 1'b0;
+        expected_sample_d = 16'd0;
 
         if (!reset && active && ref_valid) begin
             expected_mix =
@@ -191,16 +208,9 @@ module harmonics_tb;
                 (sample_to_int(ref_s4) * weight4(meta));
             expected_mix = expected_mix >>> W_SHIFT;
             expected_sample = clip16_bits(expected_mix);
+            expected_valid_d = 1'b1;
+            expected_sample_d = expected_sample;
 
-            if (sample_ready !== 1'b1) begin
-                fail("harmonics missed a valid mixed sample");
-            end
-
-            if ($signed(sample) !== $signed(expected_sample)) begin
-                fail("harmonics sample does not match the weighted reference mix");
-            end
-
-            checked_samples = checked_samples + 1;
             if (meta != 3'b000 && $signed(expected_sample) !== $signed(ref_s1)) begin
                 saw_harmonic_difference = 1'b1;
             end
@@ -215,6 +225,8 @@ module harmonics_tb;
         meta = 3'b000;
         checked_samples = 0;
         saw_harmonic_difference = 1'b0;
+        expected_valid_d = 1'b0;
+        expected_sample_d = 16'd0;
         expected_mix = 0;
         expected_sample = 16'd0;
 

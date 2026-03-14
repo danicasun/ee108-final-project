@@ -138,22 +138,37 @@ wire signed [MIX_W-1:0] p4 = $signed(s4_signed) * $signed({1'b0, w4});
 wire signed [MIX_W-1:0] mixsum = p1 + p2 + p3 + p4;
 wire signed [MIX_W-1:0] mix_scale = mixsum >>> W_SHIFT;
 wire mix_valid = r1 & r2 & r3 & r4;
+reg signed [MIX_W-1:0] mix_scale_q;
+reg mix_valid_q;
 parameter signed [SAMPLE_W-1:0] SAMPLE_MAX = {1'b0, {(SAMPLE_W-1){1'b1}}};
 parameter signed [SAMPLE_W-1:0] SAMPLE_MIN = {1'b1, {(SAMPLE_W-1){1'b0}}};
+
+always @(posedge clk) begin
+    if (reset || !active) begin
+        mix_scale_q <= {MIX_W{1'b0}};
+        mix_valid_q <= 1'b0;
+    end else begin
+        mix_valid_q <= mix_valid;
+
+        if (mix_valid) begin
+            mix_scale_q <= mix_scale;
+        end
+    end
+end
 
 always @(*) begin
     sample_ready = 1'b0;
     sample = {SAMPLE_W{1'b0}};
 
     if (!reset && active) begin
-        sample_ready = mix_valid;
+        sample_ready = mix_valid_q;
 
-        if (mix_scale > SAMPLE_MAX) begin
+        if (mix_scale_q > SAMPLE_MAX) begin
             sample = SAMPLE_MAX;
-        end else if (mix_scale < SAMPLE_MIN) begin
+        end else if (mix_scale_q < SAMPLE_MIN) begin
             sample = SAMPLE_MIN;
         end else begin
-            sample = mix_scale[SAMPLE_W-1:0];
+            sample = mix_scale_q[SAMPLE_W-1:0];
         end
     end
 end

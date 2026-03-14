@@ -76,8 +76,6 @@ module multi_voice_player#(
     );
     
     wire [SAMPLE_W-1:0] harm0, harm1, harm2, harm3;
-    wire hr0, hr1, hr2, hr3;
-    reg [SAMPLE_W-1:0] harm0_pipe, harm1_pipe, harm2_pipe, harm3_pipe;
 
     //instantiate the harmonics
     harmonics #(.PHASE_W(20), .SAMPLE_W(16), .W_SHIFT(5)) h0 (
@@ -88,7 +86,7 @@ module multi_voice_player#(
         .step_size(step0), 
         .meta(meta0),
         .sample(harm0), 
-        .sample_ready(hr0)
+        .sample_ready()
     );
     
      harmonics #(.PHASE_W(20), .SAMPLE_W(16), .W_SHIFT(5)) h1 (
@@ -99,7 +97,7 @@ module multi_voice_player#(
         .step_size(step1), 
         .meta(meta1),
         .sample(harm1), 
-        .sample_ready(hr1)
+        .sample_ready()
     );
     
      harmonics #(.PHASE_W(20), .SAMPLE_W(16), .W_SHIFT(5)) h2 (
@@ -110,7 +108,7 @@ module multi_voice_player#(
         .step_size(step2), 
         .meta(meta2),
         .sample(harm2), 
-        .sample_ready(hr2)
+        .sample_ready()
     );
     
      harmonics #(.PHASE_W(20), .SAMPLE_W(16), .W_SHIFT(5)) h3 (
@@ -121,7 +119,7 @@ module multi_voice_player#(
         .step_size(step3), 
         .meta(meta3),
         .sample(harm3), 
-        .sample_ready(hr3)
+        .sample_ready()
     );
     
     wire note_done0 = tick48th && voices_active[0] && (dur0 == 6'd1);
@@ -132,39 +130,6 @@ module multi_voice_player#(
     wire [15:0] dyn0, dyn1, dyn2, dyn3;
     wire envdone0, envdone1, envdone2, envdone3;
 
-    always @(posedge clk) begin
-        if (reset) begin
-            harm0_pipe <= {SAMPLE_W{1'b0}};
-            harm1_pipe <= {SAMPLE_W{1'b0}};
-            harm2_pipe <= {SAMPLE_W{1'b0}};
-            harm3_pipe <= {SAMPLE_W{1'b0}};
-        end else begin
-            if (!voices_active[0]) begin
-                harm0_pipe <= {SAMPLE_W{1'b0}};
-            end else if (hr0) begin
-                harm0_pipe <= harm0;
-            end
-
-            if (!voices_active[1]) begin
-                harm1_pipe <= {SAMPLE_W{1'b0}};
-            end else if (hr1) begin
-                harm1_pipe <= harm1;
-            end
-
-            if (!voices_active[2]) begin
-                harm2_pipe <= {SAMPLE_W{1'b0}};
-            end else if (hr2) begin
-                harm2_pipe <= harm2;
-            end
-
-            if (!voices_active[3]) begin
-                harm3_pipe <= {SAMPLE_W{1'b0}};
-            end else if (hr3) begin
-                harm3_pipe <= harm3;
-            end
-        end
-    end
-    
     //scale w/ dynamic module
     dynamics d0 (
         .clk(clk), 
@@ -173,7 +138,7 @@ module multi_voice_player#(
         .active(voices_active[0]), 
         .note_done(note_done0), 
         .meta(meta0), 
-        .sample_in(harm0_pipe), 
+        .sample_in(harm0), 
         .sample_out(dyn0), 
         .env_done(envdone0)
     );
@@ -185,7 +150,7 @@ module multi_voice_player#(
         .active(voices_active[1]), 
         .note_done(note_done1), 
         .meta(meta1), 
-        .sample_in(harm1_pipe), 
+        .sample_in(harm1), 
         .sample_out(dyn1), 
         .env_done(envdone1)
     );
@@ -197,7 +162,7 @@ module multi_voice_player#(
         .active(voices_active[2]), 
         .note_done(note_done2), 
         .meta(meta2), 
-        .sample_in(harm2_pipe), 
+        .sample_in(harm2), 
         .sample_out(dyn2), 
         .env_done(envdone2)
     );
@@ -209,7 +174,7 @@ module multi_voice_player#(
         .active(voices_active[3]), 
         .note_done(note_done3), 
         .meta(meta3), 
-        .sample_in(harm3_pipe), 
+        .sample_in(harm3), 
         .sample_out(dyn3), 
         .env_done(envdone3)
     );
