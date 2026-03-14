@@ -35,10 +35,8 @@ module song_reader(
     // TODO: update states & also double check that the new ones in the doc are correct + new FSM
     // updated states:
     // do I need a wait_busy and wait_done and wait_rom? how were we able to condense to just waiting
-    localparam IDLE      = 3'd0;
     localparam FETCH     = 3'd1;
     localparam DECODE    = 3'd2;
-    localparam SCHEDULE  = 3'd3;
     localparam WAITING   = 3'd4;
     localparam DONE      = 3'd5;
    
@@ -86,15 +84,6 @@ module song_reader(
 
         end else begin
             case (state)
-
-                IDLE: begin
-                    if (!play) begin
-                        state <= IDLE;
-                    end else begin
-                        state <= FETCH;
-                    end
-                end
-
                 // address to the synchronous ROM
                 // on the next cycle, song_word is ready to decode
                 FETCH: begin
