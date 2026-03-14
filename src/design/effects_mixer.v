@@ -3,6 +3,7 @@ module effects_mixer #(
     parameter integer SAMPLE_WIDTH = 16,
     parameter integer PAN_WIDTH = 3,
     parameter integer MIX_SHIFT = 0,
+    parameter integer ENABLE_PANNING = 1,
     parameter integer MAX_DELAY_SAMPLES = 24000,
     parameter integer ECHO_ADDR_WIDTH = 15,
     parameter integer ECHO_SHIFT_WIDTH = 4
@@ -109,16 +110,24 @@ module effects_mixer #(
             current_pan = unpack_pan(voice_pan, voice_index);
             left_gain = PAN_FULL_SCALE - current_pan;
             right_gain = current_pan;
+            left_voice_term = {ACCUM_WIDTH{1'b0}};
+            right_voice_term = {ACCUM_WIDTH{1'b0}};
 
-            left_voice_term =
-                ($signed(current_voice_sample) * $signed({1'b0, left_gain})) >>> PAN_WIDTH;
-            right_voice_term =
-                ($signed(current_voice_sample) * $signed({1'b0, right_gain})) >>> PAN_WIDTH;
+            if (ENABLE_PANNING != 0) begin
+                left_voice_term =
+                    ($signed(current_voice_sample) * $signed({1'b0, left_gain})) >>> PAN_WIDTH;
+                right_voice_term =
+                    ($signed(current_voice_sample) * $signed({1'b0, right_gain})) >>> PAN_WIDTH;
+            end
 
             if (voice_active[voice_index]) begin
                 mono_mix_next = mono_mix_next + ($signed(current_voice_sample) >>> MIX_SHIFT);
-                left_mix_next = left_mix_next + (left_voice_term >>> MIX_SHIFT);
-                right_mix_next = right_mix_next + (right_voice_term >>> MIX_SHIFT);
+                if (ENABLE_PANNING != 0) begin
+                    left_mix_next = left_mix_next + (left_voice_term >>> MIX_SHIFT);
+                    right_mix_next = right_mix_next + (right_voice_term >>> MIX_SHIFT);
+                end else begin
+                    left_mix_next = left_mix_next + ($signed(current_voice_sample) >>> MIX_SHIFT);
+                end
             end
         end
     end

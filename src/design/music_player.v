@@ -122,6 +122,7 @@ module music_player(
         .NUM_VOICES(EFFECTS_NUM_VOICES),
         .SAMPLE_WIDTH(16),
         .PAN_WIDTH(EFFECTS_PAN_WIDTH),
+        .ENABLE_PANNING(0),
         .ECHO_ADDR_WIDTH(EFFECTS_ECHO_ADDR_WIDTH)
     ) effects_mixer (
         .clk(clk),
