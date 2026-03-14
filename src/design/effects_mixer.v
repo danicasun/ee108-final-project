@@ -37,10 +37,9 @@ module effects_mixer #(
         end
     endfunction
 
-    parameter integer VOICE_SUM_WIDTH = clog2(NUM_VOICES + 1);
-    parameter integer ACCUM_WIDTH = SAMPLE_WIDTH + PAN_WIDTH + VOICE_SUM_WIDTH + 2;
-    parameter [PAN_WIDTH-1:0] PAN_FULL_SCALE = {PAN_WIDTH{1'b1}};
-    parameter [ECHO_ADDR_WIDTH-1:0] LAST_ECHO_ADDR = MAX_DELAY_SAMPLES - 1;
+    localparam integer VOICE_SUM_WIDTH = clog2(NUM_VOICES + 1);
+    localparam integer ACCUM_WIDTH = SAMPLE_WIDTH + PAN_WIDTH + VOICE_SUM_WIDTH + 2;
+    localparam [PAN_WIDTH-1:0] PAN_FULL_SCALE = {PAN_WIDTH{1'b1}};
 
     function signed [SAMPLE_WIDTH-1:0] unpack_sample;
         input [NUM_VOICES*SAMPLE_WIDTH-1:0] packed_samples;
@@ -124,67 +123,37 @@ module effects_mixer #(
         end
     end
 
-    reg [ECHO_ADDR_WIDTH-1:0] echo_write_addr;
-    reg [ECHO_ADDR_WIDTH-1:0] echo_read_addr;
-    reg [ECHO_ADDR_WIDTH:0] wrapped_read_addr;
-    reg [ECHO_ADDR_WIDTH:0] echo_fill_count;
-    wire [ECHO_ADDR_WIDTH-1:0] bounded_echo_delay =
-        (echo_delay_samples > LAST_ECHO_ADDR) ? LAST_ECHO_ADDR : echo_delay_samples;
-    wire [ECHO_ADDR_WIDTH:0] bounded_echo_delay_ext = {1'b0, bounded_echo_delay};
-    wire echo_has_valid_sample = (echo_fill_count >= bounded_echo_delay_ext);
-
-    always @(*) begin
-        wrapped_read_addr = {ECHO_ADDR_WIDTH+1{1'b0}};
-        if (echo_write_addr >= bounded_echo_delay) begin
-            echo_read_addr = echo_write_addr - bounded_echo_delay;
-        end else begin
-            wrapped_read_addr = echo_write_addr + MAX_DELAY_SAMPLES - bounded_echo_delay;
-            echo_read_addr = wrapped_read_addr[ECHO_ADDR_WIDTH-1:0];
-        end
-    end
-
-    wire [SAMPLE_WIDTH-1:0] echo_read_sample_bits;
-    wire signed [SAMPLE_WIDTH-1:0] echo_read_sample = echo_read_sample_bits;
+    wire signed [SAMPLE_WIDTH-1:0] dry_mono_sample = clip_sample(mono_mix_next);
+    wire echo_has_valid_sample;
+    wire signed [SAMPLE_WIDTH-1:0] echo_read_sample;
     wire signed [ACCUM_WIDTH-1:0] echo_term =
         (echo_enable && echo_has_valid_sample) ?
             ($signed(echo_read_sample) >>> echo_atten_shift) :
             {ACCUM_WIDTH{1'b0}};
 
-    ram_1w2r #(
-        .WIDTH(SAMPLE_WIDTH),
-        .DEPTH(ECHO_ADDR_WIDTH)
+    echo_delay_BRAM #(
+        .SAMPLE_WIDTH(SAMPLE_WIDTH),
+        .MAX_DELAY_SAMPLES(MAX_DELAY_SAMPLES),
+        .ECHO_ADDR_WIDTH(ECHO_ADDR_WIDTH)
     ) echo_ram (
-        .clka(clk),
-        .wea(sample_tick),
-        .addra(echo_write_addr),
-        .dina(clip_sample(mono_mix_next)),
-        .douta(),
-        .clkb(clk),
-        .addrb(echo_read_addr),
-        .doutb(echo_read_sample_bits)
+        .clk(clk),
+        .reset(reset),
+        .sample_tick(sample_tick),
+        .sample_in(dry_mono_sample),
+        .delay_samples(echo_delay_samples),
+        .delayed_valid(echo_has_valid_sample),
+        .delayed_sample(echo_read_sample)
     );
 
     always @(posedge clk) begin
         if (reset) begin
-            echo_write_addr <= {ECHO_ADDR_WIDTH{1'b0}};
-            echo_fill_count <= {ECHO_ADDR_WIDTH+1{1'b0}};
             mono_sample <= {SAMPLE_WIDTH{1'b0}};
             left_sample <= {SAMPLE_WIDTH{1'b0}};
             right_sample <= {SAMPLE_WIDTH{1'b0}};
         end else if (sample_tick) begin
-            mono_sample <= clip_sample(mono_mix_next);
+            mono_sample <= dry_mono_sample;
             left_sample <= clip_sample(left_mix_next + echo_term);
             right_sample <= clip_sample(right_mix_next + echo_term);
-
-            if (echo_fill_count < MAX_DELAY_SAMPLES) begin
-                echo_fill_count <= echo_fill_count + 1'b1;
-            end
-
-            if (echo_write_addr == LAST_ECHO_ADDR) begin
-                echo_write_addr <= {ECHO_ADDR_WIDTH{1'b0}};
-            end else begin
-                echo_write_addr <= echo_write_addr + 1'b1;
-            end
         end
     end
 
