@@ -10,6 +10,7 @@ module dynamics_tb;
     reg clk;
     reg reset;
     reg load;
+    reg sample_tick;
     reg active;
     reg note_done;
     reg [2:0] meta;
@@ -22,6 +23,7 @@ module dynamics_tb;
         .clk(clk),
         .reset(reset),
         .load(load),
+        .sample_tick(sample_tick),
         .active(active),
         .note_done(note_done),
         .meta(meta),
@@ -48,11 +50,23 @@ module dynamics_tb;
         end
     endtask
 
+    task pulse_sample_tick;
+        begin
+            @(negedge clk);
+            sample_tick = 1'b1;
+            @(posedge clk);
+            #1;
+            @(negedge clk);
+            sample_tick = 1'b0;
+        end
+    endtask
+
     integer release_cycles;
 
     initial begin
         reset = 1'b1;
         load = 1'b0;
+        sample_tick = 1'b0;
         active = 1'b0;
         note_done = 1'b0;
         meta = 3'd0;
@@ -77,31 +91,41 @@ module dynamics_tb;
         load = 1'b0;
 
         tick();
+        if (dut.state !== ATTACK || dut.env !== 12'd0) begin
+            fail("envelope should not advance without sample_tick");
+        end
+
+        pulse_sample_tick();
         if (dut.state !== ATTACK || dut.env !== 12'd1024) begin
             fail("first attack step is incorrect");
         end
 
-        tick();
+        pulse_sample_tick();
         if (dut.state !== ATTACK || dut.env !== 12'd2048) begin
             fail("second attack step is incorrect");
         end
 
-        tick();
+        pulse_sample_tick();
         if (dut.state !== ATTACK || dut.env !== 12'd3072) begin
             fail("third attack step is incorrect");
         end
 
-        tick();
+        pulse_sample_tick();
         if (dut.state !== DECAY || dut.env !== 12'd4095) begin
             fail("attack did not clamp at full scale and move to decay");
         end
 
-        repeat (4) tick();
+        repeat (4) pulse_sample_tick();
         if (dut.state !== SUSTAIN || dut.env !== 12'd3072) begin
             fail("decay did not settle at the sustain level");
         end
 
         tick();
+        if (dut.state !== SUSTAIN || dut.env !== 12'd3072) begin
+            fail("sustain should hold without sample_tick");
+        end
+
+        pulse_sample_tick();
         if (sample_out !== 16'sd3072) begin
             fail("sample_out did not track the sustain envelope");
         end
@@ -109,13 +133,18 @@ module dynamics_tb;
         note_done = 1'b1;
         tick();
         note_done = 1'b0;
+        if (dut.state !== SUSTAIN) begin
+            fail("note_done should wait for the next sample_tick before releasing");
+        end
+
+        pulse_sample_tick();
         if (dut.state !== RELEASE) begin
-            fail("note_done did not start the release phase");
+            fail("release did not start on the next sample_tick");
         end
 
         release_cycles = 0;
         while (!env_done && release_cycles < 10) begin
-            tick();
+            pulse_sample_tick();
             release_cycles = release_cycles + 1;
         end
 

@@ -76,6 +76,7 @@ module multi_voice_player#(
     );
     
     wire [SAMPLE_W-1:0] harm0, harm1, harm2, harm3;
+    wire hr0, hr1, hr2, hr3;
 
     //instantiate the harmonics
     harmonics #(.PHASE_W(20), .SAMPLE_W(16), .W_SHIFT(5)) h0 (
@@ -86,7 +87,7 @@ module multi_voice_player#(
         .step_size(step0), 
         .meta(meta0),
         .sample(harm0), 
-        .sample_ready()
+        .sample_ready(hr0)
     );
     
      harmonics #(.PHASE_W(20), .SAMPLE_W(16), .W_SHIFT(5)) h1 (
@@ -97,7 +98,7 @@ module multi_voice_player#(
         .step_size(step1), 
         .meta(meta1),
         .sample(harm1), 
-        .sample_ready()
+        .sample_ready(hr1)
     );
     
      harmonics #(.PHASE_W(20), .SAMPLE_W(16), .W_SHIFT(5)) h2 (
@@ -108,7 +109,7 @@ module multi_voice_player#(
         .step_size(step2), 
         .meta(meta2),
         .sample(harm2), 
-        .sample_ready()
+        .sample_ready(hr2)
     );
     
      harmonics #(.PHASE_W(20), .SAMPLE_W(16), .W_SHIFT(5)) h3 (
@@ -119,7 +120,7 @@ module multi_voice_player#(
         .step_size(step3), 
         .meta(meta3),
         .sample(harm3), 
-        .sample_ready()
+        .sample_ready(hr3)
     );
     
     wire note_done0 = tick48th && voices_active[0] && (dur0 == 6'd1);
@@ -135,6 +136,7 @@ module multi_voice_player#(
         .clk(clk), 
         .reset(reset), 
         .load(load_voice[0]), 
+        .sample_tick(hr0),
         .active(voices_active[0]), 
         .note_done(note_done0), 
         .meta(meta0), 
@@ -147,6 +149,7 @@ module multi_voice_player#(
         .clk(clk), 
         .reset(reset), 
         .load(load_voice[1]), 
+        .sample_tick(hr1),
         .active(voices_active[1]), 
         .note_done(note_done1), 
         .meta(meta1), 
@@ -159,6 +162,7 @@ module multi_voice_player#(
         .clk(clk), 
         .reset(reset), 
         .load(load_voice[2]), 
+        .sample_tick(hr2),
         .active(voices_active[2]), 
         .note_done(note_done2), 
         .meta(meta2), 
@@ -171,6 +175,7 @@ module multi_voice_player#(
         .clk(clk), 
         .reset(reset), 
         .load(load_voice[3]), 
+        .sample_tick(hr3),
         .active(voices_active[3]), 
         .note_done(note_done3), 
         .meta(meta3), 
