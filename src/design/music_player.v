@@ -29,6 +29,7 @@ module music_player(
     parameter BEAT_COUNT = 1000;
     parameter EFFECTS_NUM_VOICES = 4;
     parameter EFFECTS_PAN_WIDTH = 3;
+    parameter ENABLE_ECHO = 0;
     parameter EFFECTS_ECHO_ADDR_WIDTH = 15;
     parameter EFFECTS_ECHO_DELAY_SAMPLES = 15'd6000;
     parameter EFFECTS_ECHO_ATTEN_SHIFT = 4'd2;
@@ -120,6 +121,7 @@ module music_player(
     wire [15:0] mixed_sample_mono;
     wire [15:0] mixed_sample_left;
     wire [15:0] mixed_sample_right;
+    wire echo_enabled = play && (ENABLE_ECHO != 0);
     reg [1:0] sample_ready_pipe;
     wire voices_silent = (voices_active == 4'd0);
     wire capture_effects_inputs = voices_silent ? generate_next_sample : voice_sample_ready;
@@ -155,7 +157,7 @@ module music_player(
         .voice_active(effects_voice_active),
         .voice_samples(effects_voice_samples),
         .voice_pan(voice_pan),
-        .echo_enable(play),
+        .echo_enable(echo_enabled),
         .echo_delay_samples(EFFECTS_ECHO_DELAY_SAMPLES),
         .echo_atten_shift(EFFECTS_ECHO_ATTEN_SHIFT),
         .mono_sample(mixed_sample_mono),
