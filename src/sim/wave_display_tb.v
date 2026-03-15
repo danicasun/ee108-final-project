@@ -9,6 +9,9 @@ module wave_display_tb;
   reg saw_any;
 
   wire [8:0] read_address;
+  wire [8:0] read_address_voice0;
+  wire [8:0] read_address_voice1;
+  wire [8:0] read_address_voice2;
   wire valid_pixel;
   wire [7:0] r,g,b;
 
@@ -20,6 +23,15 @@ module wave_display_tb;
     .read_value(ram_dout),
     .read_index(read_index),
     .read_address(read_address),
+    .read_value_voice0(ram_dout),
+    .read_index_voice0(read_index),
+    .read_address_voice0(read_address_voice0),
+    .read_value_voice1(ram_dout),
+    .read_index_voice1(read_index),
+    .read_address_voice1(read_address_voice1),
+    .read_value_voice2(ram_dout),
+    .read_index_voice2(read_index),
+    .read_address_voice2(read_address_voice2),
     .valid_pixel(valid_pixel),
     .r(r), .g(g), .b(b)
   );
@@ -197,3 +209,4 @@ module wave_display_tb;
   end
 
 endmodule
+

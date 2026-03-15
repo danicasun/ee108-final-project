@@ -123,6 +123,12 @@ module lab5_top(
     wire [5:0] display_note;
     wire display_new_note;
     wire [6:0] display_next_addr;
+    wire signed [15:0] voice_root_sample;
+    wire signed [15:0] voice_third_sample;
+    wire signed [15:0] voice_fifth_sample;
+    wire signed [15:0] flopped_voice_root_sample;
+    wire signed [15:0] flopped_voice_third_sample;
+    wire signed [15:0] flopped_voice_fifth_sample;
     music_player #(.BEAT_COUNT(BEAT_COUNT)) music_player(
         .clk(clk_100),
         .reset(reset),
@@ -135,12 +141,20 @@ module lab5_top(
         .display_song(display_song),
         .display_note(display_note),
         .display_new_note(display_new_note),
-        .display_next_addr(display_next_addr)
+        .display_next_addr(display_next_addr),
+        .display_voice_root_sample(voice_root_sample),
+        .display_voice_third_sample(voice_third_sample),
+        .display_voice_fifth_sample(voice_fifth_sample)
     );
     dff #(.WIDTH(17)) sample_reg (
         .clk(clk_100),
         .d({new_sample, codec_sample}),
         .q({flopped_new_sample, flopped_sample})
+    );
+    dff #(.WIDTH(48)) voice_sample_reg (
+        .clk(clk_100),
+        .d({voice_root_sample, voice_third_sample, voice_fifth_sample}),
+        .q({flopped_voice_root_sample, flopped_voice_third_sample, flopped_voice_fifth_sample})
     );
 
 //   
@@ -224,6 +238,9 @@ module lab5_top(
         .current_note(display_note),
         .display_new_note(display_new_note),
         .next_note_addr(display_next_addr),
+        .voice_root_sample(flopped_voice_root_sample),
+        .voice_third_sample(flopped_voice_third_sample),
+        .voice_fifth_sample(flopped_voice_fifth_sample),
         .x(x[10:0]),
         .y(y[9:0]),
         //.valid(valid),
@@ -261,3 +278,4 @@ module lab5_top(
    
    
 endmodule
+

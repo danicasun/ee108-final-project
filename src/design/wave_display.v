@@ -9,6 +9,15 @@ module wave_display (
     input [7:0] read_value,
     input read_index,
     output wire [8:0] read_address,
+    input [7:0] read_value_voice0,
+    input read_index_voice0,
+    output wire [8:0] read_address_voice0,
+    input [7:0] read_value_voice1,
+    input read_index_voice1,
+    output wire [8:0] read_address_voice1,
+    input [7:0] read_value_voice2,
+    input read_index_voice2,
+    output wire [8:0] read_address_voice2,
     output wire valid_pixel,
     output wire [7:0] r,
     output wire [7:0] g,
@@ -37,22 +46,46 @@ module wave_display (
                               8'h00; //don't care outside draw region
 
     wire [8:0] addr_comb = {read_index, addr_low};
+    wire [8:0] addr_voice0 = {read_index_voice0, addr_low};
+    wire [8:0] addr_voice1 = {read_index_voice1, addr_low};
+    wire [8:0] addr_voice2 = {read_index_voice2, addr_low};
 
     assign read_address = addr_comb;
+    assign read_address_voice0 = addr_voice0;
+    assign read_address_voice1 = addr_voice1;
+    assign read_address_voice2 = addr_voice2;
 
     //adjust read_value for 800x480 display:
     //read_value_adjusted = read_value/2 + 32
     wire [7:0] read_value_adjusted = (read_value >> 1) + 8'd32;
+    wire [7:0] read_value_adjusted_voice0 = (read_value_voice0 >> 1) + 8'd32;
+    wire [7:0] read_value_adjusted_voice1 = (read_value_voice1 >> 1) + 8'd32;
+    wire [7:0] read_value_adjusted_voice2 = (read_value_voice2 >> 1) + 8'd32;
 
     reg [7:0] rv1, rv2;
+    reg [7:0] rv1_voice0, rv2_voice0;
+    reg [7:0] rv1_voice1, rv2_voice1;
+    reg [7:0] rv1_voice2, rv2_voice2;
 
     always @(posedge clk) begin
       if (reset) begin
         rv1 <= 8'd0;
         rv2 <= 8'd0;
+        rv1_voice0 <= 8'd0;
+        rv2_voice0 <= 8'd0;
+        rv1_voice1 <= 8'd0;
+        rv2_voice1 <= 8'd0;
+        rv1_voice2 <= 8'd0;
+        rv2_voice2 <= 8'd0;
       end else begin
         rv1 <= read_value_adjusted;
         rv2 <= rv1;
+        rv1_voice0 <= read_value_adjusted_voice0;
+        rv2_voice0 <= rv1_voice0;
+        rv1_voice1 <= read_value_adjusted_voice1;
+        rv2_voice1 <= rv1_voice1;
+        rv1_voice2 <= read_value_adjusted_voice2;
+        rv2_voice2 <= rv1_voice2;
       end
     end
 
@@ -62,6 +95,9 @@ module wave_display (
     reg        draw1, draw2;
 
     reg [8:0] addr1, addr2, addr3;
+    reg [8:0] addr1_voice0, addr2_voice0, addr3_voice0;
+    reg [8:0] addr1_voice1, addr2_voice1, addr3_voice1;
+    reg [8:0] addr1_voice2, addr2_voice2, addr3_voice2;
 
     always @(posedge clk) begin
         if (reset) begin
@@ -71,6 +107,9 @@ module wave_display (
             draw1 <= 1'b0; draw2 <= 1'b0;
 
             addr1 <= 9'd0; addr2 <= 9'd0; addr3 <= 9'd0;
+            addr1_voice0 <= 9'd0; addr2_voice0 <= 9'd0; addr3_voice0 <= 9'd0;
+            addr1_voice1 <= 9'd0; addr2_voice1 <= 9'd0; addr3_voice1 <= 9'd0;
+            addr1_voice2 <= 9'd0; addr2_voice2 <= 9'd0; addr3_voice2 <= 9'd0;
         end else begin
             x1 <= x;  x2 <= x1;
             y1 <= y;  y2 <= y1;
@@ -82,6 +121,15 @@ module wave_display (
             addr1 <= addr_comb;
             addr2 <= addr1;
             addr3 <= addr2;
+            addr1_voice0 <= addr_voice0;
+            addr2_voice0 <= addr1_voice0;
+            addr3_voice0 <= addr2_voice0;
+            addr1_voice1 <= addr_voice1;
+            addr2_voice1 <= addr1_voice1;
+            addr3_voice1 <= addr2_voice1;
+            addr1_voice2 <= addr_voice2;
+            addr2_voice2 <= addr1_voice2;
+            addr3_voice2 <= addr2_voice2;
         end
     end
 
@@ -91,6 +139,9 @@ module wave_display (
     reg in_draw_region_d;
     
     reg [7:0] samp_prev, samp_curr;
+    reg [7:0] samp_prev_voice0, samp_curr_voice0;
+    reg [7:0] samp_prev_voice1, samp_curr_voice1;
+    reg [7:0] samp_prev_voice2, samp_curr_voice2;
     
     always @(posedge clk) begin
       if (reset) begin
@@ -106,16 +157,48 @@ module wave_display (
       if (reset) begin
         samp_prev <= 8'd0;
         samp_curr <= 8'd0;
+        samp_prev_voice0 <= 8'd0;
+        samp_curr_voice0 <= 8'd0;
+        samp_prev_voice1 <= 8'd0;
+        samp_curr_voice1 <= 8'd0;
+        samp_prev_voice2 <= 8'd0;
+        samp_curr_voice2 <= 8'd0;
       end else if (!in_draw_region) begin
         samp_prev <= 8'd0;
         samp_curr <= 8'd0;
+        samp_prev_voice0 <= 8'd0;
+        samp_curr_voice0 <= 8'd0;
+        samp_prev_voice1 <= 8'd0;
+        samp_curr_voice1 <= 8'd0;
+        samp_prev_voice2 <= 8'd0;
+        samp_curr_voice2 <= 8'd0;
       end else if (enter_draw_region) begin
         // first column: no vertical segment
         samp_prev <= rv2;
         samp_curr <= rv2;
-      end else if (addr2 != addr3) begin
-        samp_prev <= samp_curr;
-        samp_curr <= rv2;
+        samp_prev_voice0 <= rv2_voice0;
+        samp_curr_voice0 <= rv2_voice0;
+        samp_prev_voice1 <= rv2_voice1;
+        samp_curr_voice1 <= rv2_voice1;
+        samp_prev_voice2 <= rv2_voice2;
+        samp_curr_voice2 <= rv2_voice2;
+      end else begin
+        if (addr2 != addr3) begin
+          samp_prev <= samp_curr;
+          samp_curr <= rv2;
+        end
+        if (addr2_voice0 != addr3_voice0) begin
+          samp_prev_voice0 <= samp_curr_voice0;
+          samp_curr_voice0 <= rv2_voice0;
+        end
+        if (addr2_voice1 != addr3_voice1) begin
+          samp_prev_voice1 <= samp_curr_voice1;
+          samp_curr_voice1 <= rv2_voice1;
+        end
+        if (addr2_voice2 != addr3_voice2) begin
+          samp_prev_voice2 <= samp_curr_voice2;
+          samp_curr_voice2 <= rv2_voice2;
+        end
       end
     end
 
@@ -125,13 +208,35 @@ module wave_display (
 
     wire [7:0] y_min = (samp_prev < samp_curr) ? samp_prev : samp_curr;
     wire [7:0] y_max = (samp_prev < samp_curr) ? samp_curr : samp_prev;
+    wire [7:0] y_min_voice0 = (samp_prev_voice0 < samp_curr_voice0) ? samp_prev_voice0 : samp_curr_voice0;
+    wire [7:0] y_max_voice0 = (samp_prev_voice0 < samp_curr_voice0) ? samp_curr_voice0 : samp_prev_voice0;
+    wire [7:0] y_min_voice1 = (samp_prev_voice1 < samp_curr_voice1) ? samp_prev_voice1 : samp_curr_voice1;
+    wire [7:0] y_max_voice1 = (samp_prev_voice1 < samp_curr_voice1) ? samp_curr_voice1 : samp_prev_voice1;
+    wire [7:0] y_min_voice2 = (samp_prev_voice2 < samp_curr_voice2) ? samp_prev_voice2 : samp_curr_voice2;
+    wire [7:0] y_max_voice2 = (samp_prev_voice2 < samp_curr_voice2) ? samp_curr_voice2 : samp_prev_voice2;
 
-    wire pixel_on = draw2 && v2 && (y_disp >= y_min) && (y_disp <= y_max);
+    wire pixel_on_combined = draw2 && v2 && (y_disp >= y_min) && (y_disp <= y_max);
+    wire pixel_on_voice0 = draw2 && v2 && (y_disp >= y_min_voice0) && (y_disp <= y_max_voice0);
+    wire pixel_on_voice1 = draw2 && v2 && (y_disp >= y_min_voice1) && (y_disp <= y_max_voice1);
+    wire pixel_on_voice2 = draw2 && v2 && (y_disp >= y_min_voice2) && (y_disp <= y_max_voice2);
 
-    assign valid_pixel = pixel_on;
+    assign valid_pixel = pixel_on_combined || pixel_on_voice0 || pixel_on_voice1 || pixel_on_voice2;
 
-    assign r = pixel_on ? 8'hFF : 8'h00;
-    assign g = pixel_on ? 8'hFF : 8'h00;
-    assign b = pixel_on ? 8'hFF : 8'h00;
+    assign r = pixel_on_combined ? 8'hFF :
+               pixel_on_voice0 ? 8'hFF :
+               pixel_on_voice1 ? 8'h00 :
+               pixel_on_voice2 ? 8'h00 :
+               8'h00;
+    assign g = pixel_on_combined ? 8'hFF :
+               pixel_on_voice0 ? 8'h00 :
+               pixel_on_voice1 ? 8'hFF :
+               pixel_on_voice2 ? 8'h00 :
+               8'h00;
+    assign b = pixel_on_combined ? 8'hFF :
+               pixel_on_voice0 ? 8'h00 :
+               pixel_on_voice1 ? 8'h00 :
+               pixel_on_voice2 ? 8'hFF :
+               8'h00;
 
 endmodule
+

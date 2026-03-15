@@ -7,6 +7,9 @@ module wave_display_top(
     input [5:0] current_note,
     input display_new_note,
     input [6:0] next_note_addr,
+    input signed [15:0] voice_root_sample,
+    input signed [15:0] voice_third_sample,
+    input signed [15:0] voice_fifth_sample,
     input [10:0] x,  // [0..1279]
     input [9:0]  y,  // [0..1023]     
     input valid,
@@ -20,6 +23,18 @@ module wave_display_top(
     wire [8:0] read_address, write_address;
     wire read_index;
     wire write_en;
+    wire [7:0] read_sample_root, write_sample_root;
+    wire [8:0] read_address_root, write_address_root;
+    wire read_index_root;
+    wire write_en_root;
+    wire [7:0] read_sample_third, write_sample_third;
+    wire [8:0] read_address_third, write_address_third;
+    wire read_index_third;
+    wire write_en_third;
+    wire [7:0] read_sample_fifth, write_sample_fifth;
+    wire [8:0] read_address_fifth, write_address_fifth;
+    wire read_index_fifth;
+    wire write_en_fifth;
     // wrong because vsync is a synchronnization pulse at the start/end of frames
     //wire wave_display_idle = ~vsync;
     
@@ -41,6 +56,42 @@ module wave_display_top(
         .read_index(read_index) // which buffer the display reads while the other is writing
     );
     
+    wave_capture wc_root(
+        .clk(clk),
+        .reset(reset),
+        .new_sample_ready(new_sample),
+        .new_sample_in(voice_root_sample),
+        .write_address(write_address_root),
+        .write_enable(write_en_root),
+        .write_sample(write_sample_root),
+        .wave_display_idle(wave_display_idle),
+        .read_index(read_index_root)
+    );
+    
+    wave_capture wc_third(
+        .clk(clk),
+        .reset(reset),
+        .new_sample_ready(new_sample),
+        .new_sample_in(voice_third_sample),
+        .write_address(write_address_third),
+        .write_enable(write_en_third),
+        .write_sample(write_sample_third),
+        .wave_display_idle(wave_display_idle),
+        .read_index(read_index_third)
+    );
+    
+    wave_capture wc_fifth(
+        .clk(clk),
+        .reset(reset),
+        .new_sample_ready(new_sample),
+        .new_sample_in(voice_fifth_sample),
+        .write_address(write_address_fifth),
+        .write_enable(write_en_fifth),
+        .write_sample(write_sample_fifth),
+        .wave_display_idle(wave_display_idle),
+        .read_index(read_index_fifth)
+    );
+    
     // sample RAM: stores waveform samples to be displayed
     // write port driven by wave_capture, read port driven by wave_display
     ram_1w2r #(.WIDTH(8), .DEPTH(9)) sample_ram( // width = 8 bit samples, depth = 9 bit address
@@ -52,6 +103,39 @@ module wave_display_top(
         .douta(), // unused write side read port
         .addrb(read_address), // read address from wave_display
         .doutb(read_sample) // sample value read for display
+    );
+    
+    ram_1w2r #(.WIDTH(8), .DEPTH(9)) sample_ram_root(
+        .clka(clk),
+        .clkb(clk),
+        .wea(write_en_root),
+        .addra(write_address_root),
+        .dina(write_sample_root),
+        .douta(),
+        .addrb(read_address_root),
+        .doutb(read_sample_root)
+    );
+    
+    ram_1w2r #(.WIDTH(8), .DEPTH(9)) sample_ram_third(
+        .clka(clk),
+        .clkb(clk),
+        .wea(write_en_third),
+        .addra(write_address_third),
+        .dina(write_sample_third),
+        .douta(),
+        .addrb(read_address_third),
+        .doutb(read_sample_third)
+    );
+    
+    ram_1w2r #(.WIDTH(8), .DEPTH(9)) sample_ram_fifth(
+        .clka(clk),
+        .clkb(clk),
+        .wea(write_en_fifth),
+        .addra(write_address_fifth),
+        .dina(write_sample_fifth),
+        .douta(),
+        .addrb(read_address_fifth),
+        .doutb(read_sample_fifth)
     );
  
     // converts RAM samples into pixels
@@ -68,6 +152,15 @@ module wave_display_top(
         .read_address(read_address), // address into the RAM
         .read_value(read_sample), // value read from RAM
         .read_index(read_index), // which buffer to read from
+        .read_address_voice0(read_address_root),
+        .read_value_voice0(read_sample_root),
+        .read_index_voice0(read_index_root),
+        .read_address_voice1(read_address_third),
+        .read_value_voice1(read_sample_third),
+        .read_index_voice1(read_index_third),
+        .read_address_voice2(read_address_fifth),
+        .read_value_voice2(read_sample_fifth),
+        .read_index_voice2(read_index_fifth),
         .valid_pixel(valid_pixel), // high when the pixel should be drawn
         .r(wd_r), .g(wd_g), .b(wd_b) // white RGB to display wave
     );
@@ -93,3 +186,4 @@ module wave_display_top(
                        {3{8'b0}};
 
 endmodule
+

@@ -1,0 +1,171 @@
+`timescale 1ns/1ps
+
+module wave_display_color_tb;
+  reg clk = 0;
+  reg reset = 1;
+  reg [10:0] x;
+  reg [9:0] y;
+  reg valid;
+  reg [7:0] read_value;
+  reg [7:0] read_value_voice0;
+  reg [7:0] read_value_voice1;
+  reg [7:0] read_value_voice2;
+  reg read_index;
+  reg read_index_voice0;
+  reg read_index_voice1;
+  reg read_index_voice2;
+
+  wire [8:0] read_address;
+  wire [8:0] read_address_voice0;
+  wire [8:0] read_address_voice1;
+  wire [8:0] read_address_voice2;
+  wire valid_pixel;
+  wire [7:0] r, g, b;
+
+  wave_display dut(
+    .clk(clk),
+    .reset(reset),
+    .x(x),
+    .y(y),
+    .valid(valid),
+    .read_value(read_value),
+    .read_index(read_index),
+    .read_address(read_address),
+    .read_value_voice0(read_value_voice0),
+    .read_index_voice0(read_index_voice0),
+    .read_address_voice0(read_address_voice0),
+    .read_value_voice1(read_value_voice1),
+    .read_index_voice1(read_index_voice1),
+    .read_address_voice1(read_address_voice1),
+    .read_value_voice2(read_value_voice2),
+    .read_index_voice2(read_index_voice2),
+    .read_address_voice2(read_address_voice2),
+    .valid_pixel(valid_pixel),
+    .r(r),
+    .g(g),
+    .b(b)
+  );
+
+  always #5 clk = ~clk;
+
+  task tick;
+    @(posedge clk);
+  endtask
+
+  reg [10:0] base_x;
+  task flush_pipe;
+    integer k;
+    begin
+      // toggle address so samp_prev/samp_curr update (addr2 != addr3)
+      for (k = 0; k < 4; k = k + 1) begin
+        x = base_x + k[10:0];
+        tick();
+      end
+      x = base_x;
+      repeat(3) tick();
+    end
+  endtask
+
+  task clear_samples;
+    begin
+      // force out of draw region to clear sample history
+      y = 10'b1_000000000;
+      repeat(4) tick();
+      y = 10'd128;
+    end
+  endtask
+
+  task expect_rgb;
+    input [7:0] exp_r;
+    input [7:0] exp_g;
+    input [7:0] exp_b;
+    input [127:0] label;
+    begin
+      if (valid_pixel !== 1'b1 || r !== exp_r || g !== exp_g || b !== exp_b) begin
+        $display("FAIL: %s (valid=%b r=%h g=%h b=%h)", label, valid_pixel, r, g, b);
+      end else begin
+        $display("PASS: %s", label);
+      end
+    end
+  endtask
+
+  initial begin
+    base_x = 11'b001_000000000;
+    x = base_x;
+    y = 10'd0;
+    valid = 1'b0;
+    read_value = 8'd0;
+    read_value_voice0 = 8'd0;
+    read_value_voice1 = 8'd0;
+    read_value_voice2 = 8'd0;
+    read_index = 1'b0;
+    read_index_voice0 = 1'b0;
+    read_index_voice1 = 1'b0;
+    read_index_voice2 = 1'b0;
+
+    repeat(5) tick();
+    reset = 0;
+
+    // use y_disp = 64 pixels -> y = 128..129 (top half)
+    y = 10'd128;
+
+    // combined waveform only, white
+    valid = 1'b1;
+    read_value = 8'd64;
+    read_value_voice0 = 8'd0;
+    read_value_voice1 = 8'd0;
+    read_value_voice2 = 8'd0;
+    clear_samples();
+    flush_pipe();
+    expect_rgb(8'hFF, 8'hFF, 8'hFF, "combined waveform white");
+
+    // voice0 only, red
+    read_value = 8'd0;
+    read_value_voice0 = 8'd64;
+    read_value_voice1 = 8'd0;
+    read_value_voice2 = 8'd0;
+    clear_samples();
+    flush_pipe();
+    expect_rgb(8'hFF, 8'h00, 8'h00, "voice0 red");
+
+    // voice1 only, green
+    read_value = 8'd0;
+    read_value_voice0 = 8'd0;
+    read_value_voice1 = 8'd64;
+    read_value_voice2 = 8'd0;
+    clear_samples();
+    flush_pipe();
+    expect_rgb(8'h00, 8'hFF, 8'h00, "voice1 green");
+
+    // voice2 only, blue
+    read_value = 8'd0;
+    read_value_voice0 = 8'd0;
+    read_value_voice1 = 8'd0;
+    read_value_voice2 = 8'd64;
+    clear_samples();
+    flush_pipe();
+    expect_rgb(8'h00, 8'h00, 8'hFF, "voice2 blue");
+
+    // combined has priority over voice colors,, show white
+    read_value = 8'd64;
+    read_value_voice0 = 8'd64;
+    read_value_voice1 = 8'd0;
+    read_value_voice2 = 8'd0;
+    clear_samples();
+    flush_pipe();
+    expect_rgb(8'hFF, 8'hFF, 8'hFF, "combined priority over voice0");
+
+    // valid gating, no pixel
+    valid = 1'b0;
+    flush_pipe();
+    if (valid_pixel !== 1'b0) begin
+      $display("FAIL: valid gating (expected no pixel)");
+    end else begin
+      $display("PASS: valid gating");
+    end
+
+    $display("wave_display_color_tb complete.");
+    $finish;
+  end
+endmodule
+
