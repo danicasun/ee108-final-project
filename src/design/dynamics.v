@@ -17,12 +17,13 @@ module dynamics(
 
     localparam [15:0] MAX_LEVEL = 16'hffff;
     localparam [15:0] SUSTAIN_LEVEL = 16'h5000;
-    localparam [15:0] ATTACK_STEP = 16'd256;
-    localparam integer DECAY_SHIFT = 8;
-    localparam integer RELEASE_SHIFT = 9;
+    localparam [15:0] ATTACK_STEP = 16'd64;
+    localparam integer DECAY_SHIFT = 10;
+    localparam integer RELEASE_SHIFT = 11;
 
     reg [2:0] state;
     reg [15:0] envelope_level;
+    reg trigger_pending;
 
     wire [15:0] decay_delta = envelope_level - SUSTAIN_LEVEL;
     wire [15:0] decay_step = (decay_delta >> DECAY_SHIFT) == 16'd0 ? 16'd1 : (decay_delta >> DECAY_SHIFT);
@@ -32,61 +33,70 @@ module dynamics(
         if (reset) begin
             state <= IDLE;
             envelope_level <= 16'd0;
-        end else if (trigger) begin
-            state <= ATTACK;
-            envelope_level <= 16'd0;
-        end else if (sample_valid_in) begin
-            case (state)
-                IDLE: begin
-                    envelope_level <= 16'd0;
-                    if (gate) begin
-                        state <= ATTACK;
-                    end
-                end
+            trigger_pending <= 1'b0;
+        end else begin
+            if (trigger) begin
+                trigger_pending <= 1'b1;
+            end
 
-                ATTACK: begin
-                    if (!gate) begin
-                        state <= RELEASE;
-                    end else if (envelope_level >= (MAX_LEVEL - ATTACK_STEP)) begin
-                        envelope_level <= MAX_LEVEL;
-                        state <= DECAY;
-                    end else begin
-                        envelope_level <= envelope_level + ATTACK_STEP;
-                    end
-                end
+            if (sample_valid_in) begin
+                if (trigger_pending) begin
+                    state <= ATTACK;
+                    trigger_pending <= 1'b0;
+                end else begin
+                    case (state)
+                        IDLE: begin
+                            envelope_level <= 16'd0;
+                            if (gate) begin
+                                state <= ATTACK;
+                            end
+                        end
 
-                DECAY: begin
-                    if (!gate) begin
-                        state <= RELEASE;
-                    end else if (envelope_level <= SUSTAIN_LEVEL) begin
-                        envelope_level <= SUSTAIN_LEVEL;
-                        state <= SUSTAIN;
-                    end else begin
-                        envelope_level <= envelope_level - decay_step;
-                    end
-                end
+                        ATTACK: begin
+                            if (!gate) begin
+                                state <= RELEASE;
+                            end else if (envelope_level >= (MAX_LEVEL - ATTACK_STEP)) begin
+                                envelope_level <= MAX_LEVEL;
+                                state <= DECAY;
+                            end else begin
+                                envelope_level <= envelope_level + ATTACK_STEP;
+                            end
+                        end
 
-                SUSTAIN: begin
-                    envelope_level <= SUSTAIN_LEVEL;
-                    if (!gate) begin
-                        state <= RELEASE;
-                    end
-                end
+                        DECAY: begin
+                            if (!gate) begin
+                                state <= RELEASE;
+                            end else if (envelope_level <= SUSTAIN_LEVEL) begin
+                                envelope_level <= SUSTAIN_LEVEL;
+                                state <= SUSTAIN;
+                            end else begin
+                                envelope_level <= envelope_level - decay_step;
+                            end
+                        end
 
-                RELEASE: begin
-                    if (envelope_level <= release_step) begin
-                        envelope_level <= 16'd0;
-                        state <= gate ? ATTACK : IDLE;
-                    end else begin
-                        envelope_level <= envelope_level - release_step;
-                    end
-                end
+                        SUSTAIN: begin
+                            envelope_level <= SUSTAIN_LEVEL;
+                            if (!gate) begin
+                                state <= RELEASE;
+                            end
+                        end
 
-                default: begin
-                    state <= IDLE;
-                    envelope_level <= 16'd0;
+                        RELEASE: begin
+                            if (envelope_level <= release_step) begin
+                                envelope_level <= 16'd0;
+                                state <= gate ? ATTACK : IDLE;
+                            end else begin
+                                envelope_level <= envelope_level - release_step;
+                            end
+                        end
+
+                        default: begin
+                            state <= IDLE;
+                            envelope_level <= 16'd0;
+                        end
+                    endcase
                 end
-            endcase
+            end
         end
     end
 

@@ -84,6 +84,8 @@ module music_player(
     wire generate_next_sample, generate_next_sample0;
     wire [15:0] note_sample, note_sample0;
     wire note_sample_ready, note_sample_ready0;
+    wire [15:0] echoed_sample;
+    wire echoed_sample_ready;
 
     // These pipeline registers were added to decrease the length of the critical path!
     dffr pipeline_ff_gen_next_sample (.clk(clk), .r(reset), .d(generate_next_sample0), .q(generate_next_sample));
@@ -102,6 +104,18 @@ module music_player(
         .generate_next_sample(generate_next_sample),
         .sample_out(note_sample0),
         .new_sample_ready(note_sample_ready0)
+    );
+
+    echo #(
+        .DELAY_SAMPLES(12000),
+        .ATTENUATION_SHIFT(2)
+    ) echo_processor (
+        .clk(clk),
+        .reset(reset),
+        .sample_in(note_sample),
+        .sample_valid_in(note_sample_ready),
+        .sample_out(echoed_sample),
+        .sample_valid_out(echoed_sample_ready)
     );
       
 //   
@@ -135,8 +149,8 @@ module music_player(
     codec_conditioner codec_conditioner(
         .clk(clk),
         .reset(reset),
-        .new_sample_in(note_sample),
-        .latch_new_sample_in(note_sample_ready),
+        .new_sample_in(echoed_sample),
+        .latch_new_sample_in(echoed_sample_ready),
         .generate_next_sample(generate_next_sample0),
         .new_frame(new_frame),
         .valid_sample(sample_out0)
