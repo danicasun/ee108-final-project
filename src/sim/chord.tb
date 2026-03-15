@@ -1,0 +1,159 @@
+`timescale 1ns/1ps
+
+module chord_tb;
+  reg clk = 0;
+  reg reset = 1;
+  reg play_enable = 1'b0;
+  reg play = 1'b0;
+  reg [1:0] song = 2'd0;
+  reg beat = 1'b0;
+  reg generate_next_sample = 1'b0;
+
+  wire done_with_note;
+  wire [15:0] sample_out;
+  wire new_sample_ready;
+  wire signed [15:0] voice_root_sample;
+  wire signed [15:0] voice_third_sample;
+  wire signed [15:0] voice_fifth_sample;
+
+  wire song_done;
+  wire [5:0] note;
+  wire [5:0] duration;
+  wire new_note;
+  wire [6:0] next_addr;
+
+  song_reader reader(
+    .clk(clk),
+    .reset(reset),
+    .play(play),
+    .song(song),
+    .note_done(done_with_note),
+    .song_done(song_done),
+    .note(note),
+    .duration(duration),
+    .new_note(new_note),
+    .next_addr(next_addr)
+  );
+
+  wire [5:0] note_to_load = note;
+  wire [5:0] duration_to_load = duration;
+  wire load_new_note = new_note;
+
+  multi_voice_player player(
+    .clk(clk),
+    .reset(reset),
+    .play_enable(play_enable),
+    .note_to_load(note_to_load),
+    .duration_to_load(duration_to_load),
+    .load_new_note(load_new_note),
+    .done_with_note(done_with_note),
+    .beat(beat),
+    .generate_next_sample(generate_next_sample),
+    .sample_out(sample_out),
+    .new_sample_ready(new_sample_ready),
+    .voice_root_sample(voice_root_sample),
+    .voice_third_sample(voice_third_sample),
+    .voice_fifth_sample(voice_fifth_sample)
+  );
+
+  always #5 clk = ~clk;
+
+  task tick;
+    @(posedge clk);
+  endtask
+
+  reg active_note;
+  reg active_note_low;
+  reg active_note_mid;
+  reg third_nonzero_seen;
+  reg root_nonzero_seen;
+  reg fifth_nonzero_seen;
+  integer notes_checked;
+  reg song_changed_checked;
+
+  always @(posedge clk) begin
+    if (reset) begin
+      generate_next_sample <= 1'b0;
+      beat <= 1'b0;
+    end else begin
+      generate_next_sample <= 1'b1;
+      beat <= 1'b1;
+    end
+  end
+
+  always @(posedge clk) begin
+    if (reset) begin
+      active_note <= 1'b0;
+      active_note_low <= 1'b0;
+      active_note_mid <= 1'b0;
+      third_nonzero_seen <= 1'b0;
+      root_nonzero_seen <= 1'b0;
+      fifth_nonzero_seen <= 1'b0;
+      notes_checked <= 0;
+      song_changed_checked <= 1'b0;
+    end else begin
+      if (new_note) begin
+        active_note <= (note != 6'd0);
+        active_note_low <= (note < 6'd20) && (note != 6'd0);
+        active_note_mid <= (note >= 6'd20);
+        third_nonzero_seen <= 1'b0;
+        root_nonzero_seen <= 1'b0;
+        fifth_nonzero_seen <= 1'b0;
+      end
+
+      if (active_note && new_sample_ready) begin
+        if (voice_third_sample !== 16'sd0) third_nonzero_seen <= 1'b1;
+        if (voice_root_sample !== 16'sd0) root_nonzero_seen <= 1'b1;
+        if (voice_fifth_sample !== 16'sd0) fifth_nonzero_seen <= 1'b1;
+      end
+
+      if (active_note && done_with_note) begin
+        if (!root_nonzero_seen || !fifth_nonzero_seen) begin
+          $display("FAIL: expected root and fifth voices active");
+        end else begin
+          $display("PASS: root and fifth voices active");
+        end
+
+        if (active_note_low) begin
+          if (third_nonzero_seen) begin
+            $display("FAIL: third voice should be suppressed for very low note");
+          end else begin
+            $display("PASS: third voice suppressed for very low note");
+          end
+        end else if (active_note_mid) begin
+          if (!third_nonzero_seen) begin
+            $display("WARN: third voice not observed for mid note");
+          end else begin
+            $display("PASS: third voice active for mid note");
+          end
+        end
+
+        active_note <= 1'b0;
+        notes_checked <= notes_checked + 1;
+      end
+    end
+  end
+
+  initial begin
+    repeat(4) tick();
+    reset = 0;
+    play = 1'b1;
+    play_enable = 1'b1;
+
+    // allow a few notes to be scheduled
+    repeat(400) begin
+      tick();
+
+      // song change check removed per user request
+
+      if (notes_checked >= 4) begin
+        $display("chord_tb complete.");
+        $finish;
+      end
+    end
+
+    $display("FAIL: chord_tb timeout");
+    $finish;
+  end
+endmodule
+
