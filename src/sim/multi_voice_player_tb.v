@@ -100,10 +100,10 @@ module multi_voice_player_tb;
         integer expected_out;
         begin
             mix_sum = 0;
-            if (voices_active[0]) mix_sum = mix_sum + sample_to_int(dut.dyn0);
-            if (voices_active[1]) mix_sum = mix_sum + sample_to_int(dut.dyn1);
-            if (voices_active[2]) mix_sum = mix_sum + sample_to_int(dut.dyn2);
-            if (voices_active[3]) mix_sum = mix_sum + sample_to_int(dut.dyn3);
+            if (voices_active[0]) mix_sum = mix_sum + sample_to_int(dut.voice0);
+            if (voices_active[1]) mix_sum = mix_sum + sample_to_int(dut.voice1);
+            if (voices_active[2]) mix_sum = mix_sum + sample_to_int(dut.voice2);
+            if (voices_active[3]) mix_sum = mix_sum + sample_to_int(dut.voice3);
             expected_out = mix_sum >>> 2;
 
             if ($signed(out) !== expected_out[15:0]) begin
@@ -187,8 +187,8 @@ module multi_voice_player_tb;
             pulse_gen_next();
             @(posedge clk);
             #1;
-            if ($signed(dut.dyn0) < 0 || $signed(dut.dyn1) < 0 ||
-                $signed(dut.dyn2) < 0 || $signed(dut.dyn3) < 0) begin
+            if ($signed(dut.voice0) < 0 || $signed(dut.voice1) < 0 ||
+                $signed(dut.voice2) < 0 || $signed(dut.voice3) < 0) begin
                 saw_negative_dyn = 1'b1;
                 check_mix_matches_internal();
             end

@@ -163,6 +163,7 @@ module music_player(
     );
     
     wire [15:0] mixed_sample = play ? mixed_sample_left : 16'd0;
+    wire [15:0] codec_sample_in = play ? dry_sample_raw : 16'd0;
 
 //   
 //  ****************************************************************************
@@ -194,8 +195,8 @@ module music_player(
     codec_conditioner codec_conditioner(
         .clk(clk),
         .reset(reset),
-        .new_sample_in(mixed_sample),
-        .latch_new_sample_in(latch_mixed_sample),
+        .new_sample_in(codec_sample_in),
+        .latch_new_sample_in(voice_sample_ready),
         .generate_next_sample(generate_next_sample_raw),
         .new_frame(new_frame),
         .valid_sample(sample_out0)
