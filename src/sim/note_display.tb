@@ -1,0 +1,130 @@
+`timescale 1ns/1ps
+
+module note_display_tb;
+  reg clk = 0;
+  reg reset = 1;
+  reg [10:0] x;
+  reg [9:0] y;
+  reg valid;
+  reg [1:0] current_song;
+  reg [5:0] current_note;
+  reg new_note;
+  reg [6:0] next_note_addr;
+
+  wire valid_pixel;
+  wire [7:0] r, g, b;
+
+  note_display dut(
+    .clk(clk),
+    .reset(reset),
+    .x(x),
+    .y(y),
+    .valid(valid),
+    .current_song(current_song),
+    .current_note(current_note),
+    .new_note(new_note),
+    .next_note_addr(next_note_addr),
+    .valid_pixel(valid_pixel),
+    .r(r),
+    .g(g),
+    .b(b)
+  );
+
+  // local geometry matches note_display.v
+  localparam integer SCALE = 2;
+  localparam integer CHAR_WIDTH = 8 * SCALE;
+  localparam integer CHAR_HEIGHT = 8 * SCALE;
+  localparam integer LABEL_CHARS = 6;
+  localparam integer ENTRY_CHARS = 11;
+  localparam integer TOTAL_CHARS = LABEL_CHARS + ENTRY_CHARS;
+  localparam integer TOTAL_LINES = 7;
+  localparam [10:0] ORIGIN_X = 11'd120;
+  localparam [9:0] ORIGIN_Y = 10'd272;
+  localparam [10:0] TEXT_WIDTH = TOTAL_CHARS * CHAR_WIDTH;
+  localparam [9:0] TEXT_HEIGHT = TOTAL_LINES * CHAR_HEIGHT;
+  localparam [10:0] BOX_X0 = ORIGIN_X - 11'd8;
+  localparam [10:0] BOX_X1 = ORIGIN_X + TEXT_WIDTH + 11'd8;
+  localparam [9:0] BOX_Y0 = ORIGIN_Y - 10'd8;
+  localparam [9:0] BOX_Y1 = ORIGIN_Y + TEXT_HEIGHT + 10'd8;
+
+  always #5 clk = ~clk;
+
+  task tick;
+    @(posedge clk);
+  endtask
+
+  task expect_equal;
+    input expected;
+    input actual;
+    input [127:0] label;
+    begin
+      if (expected !== actual) begin
+        $display("FAIL: %s (expected=%b actual=%b)", label, expected, actual);
+      end else begin
+        $display("PASS: %s", label);
+      end
+    end
+  endtask
+
+  task expect_rgb;
+    input [7:0] exp_r;
+    input [7:0] exp_g;
+    input [7:0] exp_b;
+    input [127:0] label;
+    begin
+      if (r !== exp_r || g !== exp_g || b !== exp_b) begin
+        $display("FAIL: %s (r=%h g=%h b=%h)", label, r, g, b);
+      end else begin
+        $display("PASS: %s", label);
+      end
+    end
+  endtask
+
+  initial begin
+    x = 11'd0;
+    y = 10'd0;
+    valid = 1'b0;
+    current_song = 2'd0;
+    current_note = 6'd0;
+    new_note = 1'b0;
+    next_note_addr = 7'd0;
+
+    repeat(5) tick();
+    reset = 0;
+
+    // latch a current note
+    current_note = 6'd25;
+    new_note = 1'b1;
+    tick();
+    new_note = 1'b0;
+
+    valid = 1'b1;
+
+    // outside box -> no pixel, black
+    x = 11'd0;
+    y = 10'd0;
+    tick();
+    expect_equal(1'b0, valid_pixel, "outside box valid_pixel");
+    expect_rgb(8'h00, 8'h00, 8'h00, "outside box RGB black");
+
+    // inside box but outside text region -> background color
+    x = BOX_X0 + 11'd1;
+    y = BOX_Y0 + 10'd1;
+    tick();
+    expect_equal(1'b1, valid_pixel, "box border valid_pixel");
+    expect_rgb(8'h08, 8'h10, 8'h28, "box border RGB background");
+
+    // inside text region -> non-black (glyph or background)
+    x = ORIGIN_X + 11'd4;
+    y = ORIGIN_Y + 10'd4;
+    tick();
+    if ((r | g | b) == 8'h00) begin
+      $display("FAIL: text region RGB nonzero");
+    end else begin
+      $display("PASS: text region RGB nonzero");
+    end
+
+    $display("note_display_tb complete.");
+    $finish;
+  end
+endmodule

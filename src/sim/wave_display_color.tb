@@ -126,7 +126,7 @@ module wave_display_color_tb;
     read_value_voice2 = 8'd0;
     clear_samples();
     flush_pipe();
-    expect_rgb(8'hFF, 8'h00, 8'h00, "voice0 red");
+    expect_rgb(8'hFF, 8'h00, 8'h00, "root red");
 
     // voice1 only, green
     read_value = 8'd0;
@@ -135,7 +135,7 @@ module wave_display_color_tb;
     read_value_voice2 = 8'd0;
     clear_samples();
     flush_pipe();
-    expect_rgb(8'h00, 8'hFF, 8'h00, "voice1 green");
+    expect_rgb(8'h00, 8'hFF, 8'h00, "third green");
 
     // voice2 only, blue
     read_value = 8'd0;
@@ -144,7 +144,7 @@ module wave_display_color_tb;
     read_value_voice2 = 8'd64;
     clear_samples();
     flush_pipe();
-    expect_rgb(8'h00, 8'h00, 8'hFF, "voice2 blue");
+    expect_rgb(8'h00, 8'h00, 8'hFF, "fifth blue");
 
     // combined has priority over voice colors,, show white
     read_value = 8'd64;
