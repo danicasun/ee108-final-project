@@ -16,21 +16,20 @@ module song_reader(
     wire [5:0] rom_note = song_word[11:6];
     wire [5:0] rom_dur = song_word[5:0];
     
-    // instance to retrieve from the song rom
+    //retrieve song rom
     song_rom rom (
         .clk(clk),
         .addr(song_addr),
         .dout(song_word)
     );
     
-    // States
+    //states
     localparam WAIT_DONE = 3'd0;
     localparam WAIT_ROM = 3'd1; 
     localparam READ_AND_LOAD = 3'd2;
     localparam WAIT_BUSY = 3'd3; 
     localparam SONG_DONE = 3'd4;
     
-    //track state
     reg [2:0] state;
     
     //track song changes
@@ -60,7 +59,7 @@ module song_reader(
             end 
             case(state)
                 WAIT_DONE: begin
-                    // Wait for note_player to be ready
+                    //wait for note_player to be ready
                     if (!play) begin
                         state <= WAIT_DONE;
                     end else if (note_done) begin
@@ -69,7 +68,7 @@ module song_reader(
                 end
                 
                 WAIT_ROM: begin
-                    // Wait for ROM Data to be valid
+                    //need valid ROM data
                     if (!play) begin
                         state <= WAIT_ROM;
                     end else begin
@@ -88,7 +87,7 @@ module song_reader(
                         new_note <= 1'b1;
                         end_after_current_note <= (song_addr[4:0] == 5'd31);
 
-                        // Increment address inside current song block only.
+                        //inc address inside current song block only.
                         if (song_addr[4:0] != 5'd31) begin
                             song_addr <= song_addr + 7'd1;
                         end
@@ -98,7 +97,7 @@ module song_reader(
                 end
 
                 WAIT_BUSY: begin
-                    // wait 1 cycle here to allow the note_player to see new_note
+                    //wait 1 cycle here to allow the note_player to see new_note
                     if (end_after_current_note) begin
                         end_after_current_note <= 1'b0;
                         state <= SONG_DONE;
@@ -110,7 +109,7 @@ module song_reader(
                 SONG_DONE: begin
                     new_note <= 1'b0;
                     song_done <= 1'b1;
-                    // Stay here until reset
+                    //until reset
                     state <= SONG_DONE;
                 end
                 
