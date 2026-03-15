@@ -7,7 +7,8 @@ module song_reader(
     output reg song_done,
     output reg [5:0] note,
     output reg [5:0] duration,
-    output reg new_note
+    output reg new_note,
+    output [6:0] next_addr
 );
 
     reg [6:0] song_addr;
@@ -120,4 +121,6 @@ module song_reader(
             endcase
         end
    end
+
+   assign next_addr = song_addr;
 endmodule

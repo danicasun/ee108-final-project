@@ -3,6 +3,10 @@ module wave_display_top(
     input reset,
     input new_sample,
     input [15:0] sample,
+    input [1:0] current_song,
+    input [5:0] current_note,
+    input display_new_note,
+    input [6:0] next_note_addr,
     input [10:0] x,  // [0..1279]
     input [9:0]  y,  // [0..1023]     
     input valid,
@@ -53,6 +57,8 @@ module wave_display_top(
     // converts RAM samples into pixels
     wire valid_pixel;
     wire [7:0] wd_r, wd_g, wd_b;
+    wire note_valid_pixel;
+    wire [7:0] note_r, note_g, note_b;
     wave_display wd(
         .clk(clk),
         .reset(reset),
@@ -65,8 +71,25 @@ module wave_display_top(
         .valid_pixel(valid_pixel), // high when the pixel should be drawn
         .r(wd_r), .g(wd_g), .b(wd_b) // white RGB to display wave
     );
+
+    note_display nd(
+        .clk(clk),
+        .reset(reset),
+        .x(x),
+        .y(y),
+        .valid(valid),
+        .current_song(current_song),
+        .current_note(current_note),
+        .new_note(display_new_note),
+        .next_note_addr(next_note_addr),
+        .valid_pixel(note_valid_pixel),
+        .r(note_r),
+        .g(note_g),
+        .b(note_b)
+    );
     
-    // only drive RGB to white wave when wave_display outputs valid waveform pixel
-    assign {r, g, b} = valid_pixel ? {wd_r, wd_g, wd_b} : {3{8'b0}};
+    assign {r, g, b} = note_valid_pixel ? {note_r, note_g, note_b} :
+                       valid_pixel ? {wd_r, wd_g, wd_b} :
+                       {3{8'b0}};
 
 endmodule

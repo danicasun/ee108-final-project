@@ -23,7 +23,13 @@ module music_player(
 
     // Our final output sample to the codec. This needs to be synced to
     // new_frame.
-    output wire [15:0] sample_out
+    output wire [15:0] sample_out,
+
+    // Display/debug outputs for note visualization.
+    output wire [1:0] display_song,
+    output wire [5:0] display_note,
+    output wire display_new_note,
+    output wire [6:0] display_next_addr
 );
     // The BEAT_COUNT is parameterized so you can reduce this in simulation.
     // If you reduce this to 100 your simulation will be 10x faster.
@@ -63,6 +69,7 @@ module music_player(
     wire [5:0] duration_for_note;
     wire new_note;
     wire note_done;
+    wire [6:0] next_note_addr;
     song_reader song_reader(
         .clk(clk),
         .reset(reset | reset_player),
@@ -72,7 +79,8 @@ module music_player(
         .note(note_to_play),
         .duration(duration_for_note),
         .new_note(new_note),
-        .note_done(note_done)
+        .note_done(note_done),
+        .next_addr(next_note_addr)
     );
 
 //   
@@ -155,5 +163,10 @@ module music_player(
         .new_frame(new_frame),
         .valid_sample(sample_out0)
     );
+
+    assign display_song = current_song;
+    assign display_note = note_to_play;
+    assign display_new_note = new_note;
+    assign display_next_addr = next_note_addr;
 
 endmodule

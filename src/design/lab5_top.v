@@ -119,6 +119,10 @@ module lab5_top(
     wire new_frame;
     wire [15:0] codec_sample, flopped_sample;
     wire new_sample, flopped_new_sample;
+    wire [1:0] display_song;
+    wire [5:0] display_note;
+    wire display_new_note;
+    wire [6:0] display_next_addr;
     music_player #(.BEAT_COUNT(BEAT_COUNT)) music_player(
         .clk(clk_100),
         .reset(reset),
@@ -126,7 +130,11 @@ module lab5_top(
         .next_button(next),
         .new_frame(new_frame), 
         .sample_out(codec_sample),
-        .new_sample_generated(new_sample)
+        .new_sample_generated(new_sample),
+        .display_song(display_song),
+        .display_note(display_note),
+        .display_new_note(display_new_note),
+        .display_next_addr(display_next_addr)
     );
     dff #(.WIDTH(17)) sample_reg (
         .clk(clk_100),
@@ -212,6 +220,10 @@ module lab5_top(
 		.reset (reset),
 		.new_sample (new_sample),
 		.sample (flopped_sample),
+        .current_song(display_song),
+        .current_note(display_note),
+        .display_new_note(display_new_note),
+        .next_note_addr(display_next_addr),
         .x(x[10:0]),
         .y(y[9:0]),
         //.valid(valid),
@@ -249,4 +261,3 @@ module lab5_top(
    
    
 endmodule
-

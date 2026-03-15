@@ -25,14 +25,13 @@ module echo #(
         end
     endfunction
 
-    reg signed [15:0] delay_line [0:DELAY_SAMPLES-1];
+    (* ram_style = "block" *) reg signed [15:0] delay_line [0:DELAY_SAMPLES-1];
     reg [PTR_WIDTH-1:0] write_ptr;
     reg [PTR_WIDTH:0] fill_count;
     reg signed [15:0] dry_sample_reg;
     reg signed [15:0] delayed_sample_reg;
     reg sample_valid_reg;
 
-    integer i;
     always @(posedge clk) begin
         if (reset) begin
             write_ptr <= {PTR_WIDTH{1'b0}};
@@ -40,9 +39,6 @@ module echo #(
             dry_sample_reg <= 16'sd0;
             delayed_sample_reg <= 16'sd0;
             sample_valid_reg <= 1'b0;
-            for (i = 0; i < DELAY_SAMPLES; i = i + 1) begin
-                delay_line[i] <= 16'sd0;
-            end
         end else begin
             sample_valid_reg <= sample_valid_in;
 
