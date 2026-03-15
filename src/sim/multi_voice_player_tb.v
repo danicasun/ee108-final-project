@@ -239,7 +239,8 @@ module multi_voice_player_tb;
         end
 
         wait_cycles = 0;
-        while (voices_active[1] && wait_cycles < 16) begin
+        while (voices_active[1] && wait_cycles < 5000) begin
+            pulse_gen_next();
             @(posedge clk);
             #1;
             wait_cycles = wait_cycles + 1;

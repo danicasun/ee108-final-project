@@ -62,7 +62,17 @@ module dynamics_tb;
     endtask
 
     integer release_cycles;
-    reg [11:0] meta_attack_step;
+    integer sample_cycles;
+
+    task pulse_sample_ticks;
+        input integer count;
+        integer i;
+        begin
+            for (i = 0; i < count; i = i + 1) begin
+                pulse_sample_tick();
+            end
+        end
+    endtask
 
     initial begin
         reset = 1'b1;
@@ -73,6 +83,7 @@ module dynamics_tb;
         meta = 3'd0;
         sample_in = 16'sd4096;
         release_cycles = 0;
+        sample_cycles = 0;
 
         repeat (3) tick();
         reset = 1'b0;
@@ -97,18 +108,13 @@ module dynamics_tb;
         end
 
         pulse_sample_tick();
-        if (dut.state !== ATTACK || dut.env !== 12'd1024) begin
-            fail("first attack step is incorrect");
+        if (dut.state !== ATTACK || dut.env == 12'd0 || dut.env >= 12'd4095) begin
+            fail("attack should rise gradually on each sample_tick");
         end
 
-        pulse_sample_tick();
-        if (dut.state !== ATTACK || dut.env !== 12'd2048) begin
-            fail("second attack step is incorrect");
-        end
-
-        pulse_sample_tick();
-        if (dut.state !== ATTACK || dut.env !== 12'd3072) begin
-            fail("third attack step is incorrect");
+        pulse_sample_ticks(dut.attack_len_sel - 2);
+        if (dut.state !== ATTACK || dut.env >= 12'd4095) begin
+            fail("attack should stay active until the final attack sample");
         end
 
         pulse_sample_tick();
@@ -116,18 +122,23 @@ module dynamics_tb;
             fail("attack did not clamp at full scale and move to decay");
         end
 
-        repeat (4) pulse_sample_tick();
-        if (dut.state !== SUSTAIN || dut.env !== 12'd3072) begin
+        pulse_sample_ticks(dut.decay_len_sel - 1);
+        if (dut.state !== DECAY || dut.env <= dut.sustain_level_sel) begin
+            fail("decay should remain active until the final decay sample");
+        end
+
+        pulse_sample_tick();
+        if (dut.state !== SUSTAIN || dut.env !== dut.sustain_level_sel) begin
             fail("decay did not settle at the sustain level");
         end
 
         tick();
-        if (dut.state !== SUSTAIN || dut.env !== 12'd3072) begin
+        if (dut.state !== SUSTAIN || dut.env !== dut.sustain_level_sel) begin
             fail("sustain should hold without sample_tick");
         end
 
         pulse_sample_tick();
-        if (sample_out !== 16'sd3072) begin
+        if (sample_out !== 16'sd2304) begin
             fail("sample_out did not track the sustain envelope");
         end
 
@@ -144,7 +155,7 @@ module dynamics_tb;
         end
 
         release_cycles = 0;
-        while (!env_done && release_cycles < 10) begin
+        while (!env_done && release_cycles < 5000) begin
             pulse_sample_tick();
             release_cycles = release_cycles + 1;
         end
@@ -171,14 +182,20 @@ module dynamics_tb;
 
         active = 1'b1;
         meta = 3'b101;
-        meta_attack_step = 12'd64;
         load = 1'b1;
         tick();
         load = 1'b0;
 
+        if (dut.attack_len_sel !== 16'd8 ||
+            dut.decay_len_sel !== 16'd1500 ||
+            dut.release_len_sel !== 16'd2600 ||
+            dut.sustain_level_sel !== 12'd1024) begin
+            fail("meta-dependent ADSR preset did not load");
+        end
+
         pulse_sample_tick();
-        if (dut.env !== meta_attack_step) begin
-            fail("meta-dependent attack step did not apply");
+        if (dut.env !== 12'd511) begin
+            fail("meta-dependent attack interpolation did not apply");
         end
 
         $display("PASS: dynamics ADSR load, sustain, release, and mute behavior.");
