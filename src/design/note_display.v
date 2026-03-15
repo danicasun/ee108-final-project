@@ -13,7 +13,7 @@ module note_display(
     output [7:0] g,
     output [7:0] b
 );
-
+    //manual display stuff 
     localparam integer SCALE = 2;
     localparam integer CHAR_WIDTH = 8 * SCALE;
     localparam integer CHAR_HEIGHT = 8 * SCALE;
