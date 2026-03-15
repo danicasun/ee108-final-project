@@ -10,6 +10,8 @@ module harmonics(
     localparam integer FUNDAMENTAL_SHIFT = 1;
     localparam integer SECOND_SHIFT = 2;
     localparam integer THIRD_SHIFT = 3;
+    localparam integer LOW_SECOND_SHIFT = 4;
+    localparam [19:0] LOW_NOTE_THRESHOLD = 20'd45787;  // Approx. below 3C
 
     wire [20:0] second_step_size_wide = {1'b0, step_size} << 1;
     wire [20:0] third_step_size_wide = ({1'b0, step_size} << 1) + {1'b0, step_size};
@@ -55,10 +57,13 @@ module harmonics(
     wire signed [15:0] fundamental_sample = $signed(fundamental_sample_u);
     wire signed [15:0] second_sample = $signed(second_sample_u);
     wire signed [15:0] third_sample = $signed(third_sample_u);
+    wire low_fundamental = (step_size != 20'd0) && (step_size < LOW_NOTE_THRESHOLD);
+    wire signed [15:0] second_contribution = low_fundamental ? (second_sample >>> LOW_SECOND_SHIFT) : (second_sample >>> SECOND_SHIFT);
+    wire signed [15:0] third_contribution = low_fundamental ? 16'sd0 : (third_sample >>> THIRD_SHIFT);
     wire signed [17:0] harmonic_mix =
         (fundamental_sample >>> FUNDAMENTAL_SHIFT) +
-        (second_sample >>> SECOND_SHIFT) +
-        (third_sample >>> THIRD_SHIFT);
+        second_contribution +
+        third_contribution;
 
     assign sample_ready = fundamental_ready & second_ready & third_ready;
     assign sample = harmonic_mix[15:0];

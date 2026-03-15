@@ -92,8 +92,12 @@ module multi_voice_player(
     wire signed [15:0] root_sample = root_done ? 16'sd0 : $signed(root_sample_u);
     wire signed [15:0] third_sample = third_done ? 16'sd0 : $signed(third_sample_u);
     wire signed [15:0] fifth_sample = fifth_done ? 16'sd0 : $signed(fifth_sample_u);
-    wire signed [17:0] mixed_sum = root_sample + third_sample + fifth_sample;
-    wire signed [15:0] mixed_sample = mixed_sum >>> 2;
+
+    // Keep the root dominant and thin out low-register harmony voices.
+    wire signed [15:0] third_sample_scaled = low_register_note ? (third_sample >>> 2) : (third_sample >>> 1);
+    wire signed [15:0] fifth_sample_scaled = low_register_note ? (fifth_sample >>> 2) : (fifth_sample >>> 1);
+    wire signed [17:0] mixed_sum = root_sample + third_sample_scaled + fifth_sample_scaled;
+    wire signed [15:0] mixed_sample = mixed_sum >>> 1;
 
     assign done_with_note = root_done;
     assign new_sample_ready = root_ready & third_ready & fifth_ready;
