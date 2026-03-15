@@ -10,7 +10,7 @@ module frequency_rom (
     wire [19:0] memory [63:0];
 
     always @(posedge clk)
-        dout = memory[addr];
+        dout <= memory[addr];
 
     assign memory[   0  ] = {10'd000, 10'd000};  // Note: rest
     assign memory[   1  ] = {10'd009, 10'd395};  // Note: 1A

@@ -146,7 +146,7 @@ module multi_voice_player#(
                 dur2 <= 6'd0;
             end
 
-            if (schedule_note) begin
+            if (schedule_note && duration != 6'd0) begin
                 if (free0) begin
                     note0 <= note_in;
                     dur0 <= duration;
