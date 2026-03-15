@@ -94,10 +94,37 @@ module dynamics_tb;
         end
 
         active = 1'b1;
+        meta = 3'b000;
+        load = 1'b1;
+        tick();
+        if (dut.state !== SUSTAIN || dut.env !== 12'd4095) begin
+            fail("meta0 bypass should start immediately at full scale");
+        end
+
+        load = 1'b0;
+        pulse_sample_tick();
+        if (sample_out !== sample_in) begin
+            fail("meta0 bypass should pass the dry sample through");
+        end
+
+        note_done = 1'b1;
+        tick();
+        note_done = 1'b0;
+        if (!env_done || dut.state !== IDLE || dut.env !== 12'd0) begin
+            fail("meta0 bypass should end immediately on note_done");
+        end
+
+        reset = 1'b1;
+        repeat (2) tick();
+        reset = 1'b0;
+        tick();
+
+        active = 1'b1;
+        meta = 3'b001;
         load = 1'b1;
         tick();
         if (dut.state !== ATTACK || dut.env !== 12'd0) begin
-            fail("load did not start the attack phase");
+            fail("nonzero meta load did not start the attack phase");
         end
 
         load = 1'b0;
@@ -138,7 +165,7 @@ module dynamics_tb;
         end
 
         pulse_sample_tick();
-        if (sample_out !== 16'sd2304) begin
+        if (sample_out !== 16'sd1792) begin
             fail("sample_out did not track the sustain envelope");
         end
 

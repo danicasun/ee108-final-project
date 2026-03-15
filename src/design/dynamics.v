@@ -32,6 +32,7 @@ reg [15:0] decay_len_sel;
 reg [15:0] release_len_sel;
 reg [11:0] sustain_level_sel;
 reg [27:0] env_interp;
+wire bypass_env = (meta == 3'b000);
 
 wire signed [15:0] sample_in_signed = sample_in;
 wire signed [27:0] scaled_sample =
@@ -147,8 +148,8 @@ always @(posedge clk) begin
         env_done <= 1'b0;
 
         if (load) begin
-            state <= ATTACK;
-            env <= 12'd0;
+            state <= bypass_env ? SUSTAIN : ATTACK;
+            env <= bypass_env ? ENV_MAX : 12'd0;
             sample_out <= 16'd0;
             release_pending <= 1'b0;
             stage_count <= 16'd0;
@@ -160,6 +161,21 @@ always @(posedge clk) begin
             release_pending <= 1'b0;
             stage_count <= 16'd0;
             release_start_env <= 12'd0;
+        end else if (bypass_env) begin
+            state <= SUSTAIN;
+            env <= ENV_MAX;
+            release_pending <= 1'b0;
+            stage_count <= 16'd0;
+            release_start_env <= 12'd0;
+
+            if (note_done) begin
+                state <= IDLE;
+                env <= 12'd0;
+                sample_out <= 16'd0;
+                env_done <= 1'b1;
+            end else if (sample_tick) begin
+                sample_out <= sample_in;
+            end
         end else begin
             if (note_done) begin
                 release_pending <= 1'b1;
