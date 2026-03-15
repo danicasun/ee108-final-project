@@ -8,6 +8,8 @@ module multi_voice_player(
     output done_with_note,
     input beat,
     input generate_next_sample,
+    output [15:0] left_sample_out,
+    output [15:0] right_sample_out,
     output [15:0] sample_out,
     output new_sample_ready
 );
@@ -106,9 +108,21 @@ module multi_voice_player(
         (fifth_sample >>> 1);
     wire signed [17:0] mixed_sum = root_sample + third_sample_scaled + fifth_sample_scaled;
     wire signed [15:0] mixed_sample = mixed_sum >>> 1;
+    wire signed [17:0] left_sum =
+        (root_sample >>> 1) +
+        third_sample_scaled +
+        (fifth_sample_scaled >>> 2);
+    wire signed [17:0] right_sum =
+        (root_sample >>> 1) +
+        (third_sample_scaled >>> 2) +
+        fifth_sample_scaled;
+    wire signed [15:0] left_sample = left_sum >>> 1;
+    wire signed [15:0] right_sample = right_sum >>> 1;
 
     assign done_with_note = root_done;
     assign new_sample_ready = root_ready & third_ready & fifth_ready;
+    assign left_sample_out = left_sample;
+    assign right_sample_out = right_sample;
     assign sample_out = mixed_sample;
 
 endmodule

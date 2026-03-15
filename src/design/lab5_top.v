@@ -117,7 +117,7 @@ module lab5_top(
 //  ****************************************************************************
 //       
     wire new_frame;
-    wire [15:0] codec_sample, flopped_sample;
+    wire [15:0] codec_sample, codec_sample_right, flopped_sample;
     wire new_sample, flopped_new_sample;
     wire [1:0] display_song;
     wire [5:0] display_note;
@@ -130,6 +130,7 @@ module lab5_top(
         .next_button(next),
         .new_frame(new_frame), 
         .sample_out(codec_sample),
+        .sample_out_right(codec_sample_right),
         .new_sample_generated(new_sample),
         .display_song(display_song),
         .display_note(display_note),
@@ -147,7 +148,6 @@ module lab5_top(
 //      Codec interface
 //  ****************************************************************************
 //  
-    wire [23:0] hphone_r = 0;
     wire [23:0] line_in_l = 0;  
 	wire [23:0] line_in_r =  0; 
 	
@@ -169,7 +169,7 @@ module lab5_top(
         .AC_SCK(AC_SCK),
         .AC_SDA(AC_SDA),
         .hphone_l({codec_sample, 8'h00}),
-        .hphone_r(hphone_r),
+        .hphone_r({codec_sample_right, 8'h00}),
         .line_in_l(line_in_l),
         .line_in_r(line_in_r),
         .new_sample(new_frame)
