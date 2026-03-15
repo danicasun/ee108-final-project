@@ -68,7 +68,7 @@ module debouncer(
 
             `WAIT_HIGH : begin
                 out = 1'b1;
-                counter_reset = in;
+                counter_reset = ~in;
                 if (&counter_out)
                     next_state_d = `HIGH;
                 else
@@ -93,8 +93,8 @@ module debouncer(
 
             `WAIT_LOW : begin
                 out = 1'b0;
-                counter_reset = ~in;
-                if (counter_out)
+                counter_reset = in;
+                if (&counter_out)
                     next_state_d = `LOW;
                 else
                     next_state_d = `WAIT_LOW;

@@ -11,6 +11,7 @@ module multi_voice_player_tb;
     reg schedule_note;
 
     wire [15:0] out;
+    wire sample_ready;
     wire [3:0] voices_active;
     wire [3:0] load_voice;
 
@@ -24,6 +25,7 @@ module multi_voice_player_tb;
         .tick48th(tick48th),
         .schedule_note(schedule_note),
         .out(out),
+        .sample_ready(sample_ready),
         .voices_active(voices_active),
         .load_voice(load_voice)
     );
@@ -88,6 +90,42 @@ module multi_voice_player_tb;
         end
     endtask
 
+    task schedule_note_with_gen_next_and_check;
+        input [5:0] note_value;
+        input [5:0] duration_value;
+        input [2:0] meta_value;
+        input [3:0] expected_active;
+        input [3:0] expected_load;
+        integer cycles;
+        begin
+            @(negedge clk);
+            note_in = note_value;
+            duration = duration_value;
+            meta = meta_value;
+            schedule_note = 1'b1;
+            gen_next = 1'b1;
+            @(posedge clk);
+            #1;
+            if (voices_active !== expected_active || load_voice !== expected_load) begin
+                fail("simultaneous schedule/gen_next allocation mismatch");
+            end
+            @(negedge clk);
+            schedule_note = 1'b0;
+            gen_next = 1'b0;
+
+            cycles = 0;
+            while (sample_ready !== 1'b1 && cycles < 4) begin
+                @(posedge clk);
+                #1;
+                cycles = cycles + 1;
+            end
+
+            if (sample_ready !== 1'b1) begin
+                fail("new voice load should not stall sample_ready");
+            end
+        end
+    endtask
+
     function integer sample_to_int;
         input [15:0] sample_bits;
         begin
@@ -140,7 +178,9 @@ module multi_voice_player_tb;
             fail("voice 0 did not capture the first scheduled note");
         end
 
-        schedule_note_and_check(6'd12, 6'd1, 3'd2, 4'b0011, 4'b0010);
+        repeat (3) pulse_gen_next();
+        schedule_note_with_gen_next_and_check(6'd12, 6'd1, 3'd2, 4'b0011, 4'b0010);
+
         if (dut.note1 !== 6'd12 || dut.dur1 !== 6'd1 || dut.meta1 !== 3'd2) begin
             fail("voice 1 did not capture the second scheduled note");
         end

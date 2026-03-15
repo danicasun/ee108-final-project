@@ -45,6 +45,7 @@ module multi_voice_player#(
 );
     reg [5:0] dur0, dur1, dur2, dur3;
     reg [2:0] meta0, meta1, meta2, meta3;
+    reg [2:0] sample_pipe_q;
     
     //steps
     wire [19:0] step0;
@@ -200,12 +201,14 @@ module multi_voice_player#(
         if (reset) begin
             voices_active <= 4'b0000;
             load_voice <= 4'b0000;
+            sample_pipe_q <= 3'b000;
             
             note0 <= 0; note1 <= 0; note2 <= 0; note3 <= 0;
             dur0 <= 0; dur1 <= 0; dur2 <= 0; dur3 <= 0;
             meta0 <= 0; meta1 <= 0; meta2 <= 0; meta3 <= 0;
         end else begin
             load_voice <= 4'b0000;
+            sample_pipe_q <= {sample_pipe_q[1:0], gen_next};
             
             if (tick48th) begin
                 if (voices_active[0] && dur0 != 0) dur0 <= dur0 - 1'b1;
@@ -276,14 +279,9 @@ module multi_voice_player#(
      (voices_active[3] ? {{2{dyn3_signed[15]}}, dyn3_signed} : 18'sd0);
     wire signed [17:0] mix_avg = mix_sum >>> 2;
     wire any_voice_active = |voices_active;
-    wire active_voice_ready =
-        (voices_active[0] ? hr0 : 1'b1) &
-        (voices_active[1] ? hr1 : 1'b1) &
-        (voices_active[2] ? hr2 : 1'b1) &
-        (voices_active[3] ? hr3 : 1'b1);
     
     assign out = reset ? 16'd0 : mix_avg[15:0];
-    assign sample_ready = any_voice_active ? active_voice_ready : gen_next;
+    assign sample_ready = any_voice_active ? sample_pipe_q[2] : gen_next;
     assign voice_samples_packed = {dyn3, dyn2, dyn1, dyn0};
 
 endmodule
