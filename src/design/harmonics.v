@@ -14,11 +14,13 @@ module harmonics #(
     output reg sample_ready 
 );
 
-//harmonic step sizes
-wire [PHASE_W-1:0] step1 = step_size;
-wire [PHASE_W-1:0] step2 = step_size << 1;
-wire [PHASE_W-1:0] step3 = step_size + (step_size << 1);
-wire [PHASE_W-1:0] step4 = step_size << 2;
+// Widen the harmonic step path to the full phase-accumulator width so
+// upper-octave harmonics do not wrap before they reach the sine reader.
+localparam HARM_STEP_W = PHASE_W + 2;
+wire [HARM_STEP_W-1:0] step1 = {{(HARM_STEP_W-PHASE_W){1'b0}}, step_size};
+wire [HARM_STEP_W-1:0] step2 = step1 << 1;
+wire [HARM_STEP_W-1:0] step3 = step1 + (step1 << 1);
+wire [HARM_STEP_W-1:0] step4 = step1 << 2;
 
 wire do_gen = gen_next && active; 
 

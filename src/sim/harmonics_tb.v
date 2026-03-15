@@ -2,6 +2,7 @@
 
 module harmonics_tb;
     localparam PHASE_W = 20;
+    localparam HARM_STEP_W = PHASE_W + 2;
     localparam SAMPLE_W = 16;
     localparam W_SHIFT = 5;
 
@@ -17,10 +18,10 @@ module harmonics_tb;
     wire sample_ready;
 
     wire do_gen = gen_next && active;
-    wire [PHASE_W-1:0] step1 = step_size;
-    wire [PHASE_W-1:0] step2 = step_size << 1;
-    wire [PHASE_W-1:0] step3 = step_size + (step_size << 1);
-    wire [PHASE_W-1:0] step4 = step_size << 2;
+    wire [HARM_STEP_W-1:0] step1 = {{(HARM_STEP_W-PHASE_W){1'b0}}, step_size};
+    wire [HARM_STEP_W-1:0] step2 = step1 << 1;
+    wire [HARM_STEP_W-1:0] step3 = step1 + (step1 << 1);
+    wire [HARM_STEP_W-1:0] step4 = step1 << 2;
 
     wire [SAMPLE_W-1:0] ref_s1, ref_s2, ref_s3, ref_s4;
     wire ref_r1, ref_r2, ref_r3, ref_r4;
@@ -294,6 +295,24 @@ module harmonics_tb;
 
         if (!saw_harmonic_difference) begin
             fail("multi-harmonic meta setting never differed from the fundamental-only output");
+        end
+
+        step_size = 20'd346030;
+        meta = 3'b100;
+        checked_samples = 0;
+        saw_harmonic_difference = 1'b0;
+        #1;
+        if (step4 !== 22'd1384120) begin
+            fail("testbench high-note 4th-harmonic step is incorrect");
+        end
+        if (dut.step4 !== 22'd1384120) begin
+            fail("4th harmonic step should widen instead of overflowing");
+        end
+
+        repeat (8) pulse_gen_next();
+        repeat (4) @(posedge clk);
+        if (checked_samples < 4) begin
+            fail("high-note harmonic case did not produce enough checked samples");
         end
 
         pulse_restart_phase();

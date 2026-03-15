@@ -2,7 +2,7 @@ module sine_reader(
     input clk,
     input reset,
     input restart_phase,
-    input [19:0] step_size,
+    input [21:0] step_size,
     input generate_next,
 
     output sample_ready,
