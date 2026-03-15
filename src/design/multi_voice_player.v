@@ -89,9 +89,9 @@ module multi_voice_player(
         .new_sample_ready(fifth_ready)
     );
 
-    wire signed [15:0] root_sample = root_done ? 16'sd0 : $signed(root_sample_u);
-    wire signed [15:0] third_sample = third_done ? 16'sd0 : $signed(third_sample_u);
-    wire signed [15:0] fifth_sample = fifth_done ? 16'sd0 : $signed(fifth_sample_u);
+    wire signed [15:0] root_sample = $signed(root_sample_u);
+    wire signed [15:0] third_sample = $signed(third_sample_u);
+    wire signed [15:0] fifth_sample = $signed(fifth_sample_u);
 
     // Keep the root dominant and thin out low-register harmony voices.
     wire signed [15:0] third_sample_scaled = low_register_note ? (third_sample >>> 2) : (third_sample >>> 1);

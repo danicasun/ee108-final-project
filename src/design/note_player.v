@@ -37,6 +37,10 @@ module note_player(
     assign done_with_note = (duration_counter == 6'b0);
 
     wire [19:0] step_size_from_rom;
+    wire note_active = (duration_counter != 6'd0) && (active_note != 6'd0);
+    wire start_note = load_new_note && (note_to_load != 6'd0);
+    wire [15:0] harmonic_sample;
+    wire harmonic_sample_ready;
     
     frequency_rom freq_rom (
         .clk(clk),
@@ -51,8 +55,19 @@ module note_player(
         .reset(reset),
         .step_size(effective_step_size),
         .generate_next(generate_next_sample),
-        .sample_ready(new_sample_ready),
-        .sample(sample_out)
+        .sample_ready(harmonic_sample_ready),
+        .sample(harmonic_sample)
+    );
+
+    dynamics dynamics_gen (
+        .clk(clk),
+        .reset(reset),
+        .trigger(start_note),
+        .gate(note_active),
+        .sample_in(harmonic_sample),
+        .sample_valid_in(harmonic_sample_ready),
+        .sample_out(sample_out),
+        .sample_valid_out(new_sample_ready)
     );
 
 endmodule
