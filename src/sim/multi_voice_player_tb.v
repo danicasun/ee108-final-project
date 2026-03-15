@@ -11,8 +11,8 @@ module multi_voice_player_tb;
     reg schedule_note;
 
     wire [15:0] out;
-    wire [3:0] voices_active;
-    wire [3:0] load_voice;
+    wire [2:0] voices_active;
+    wire [2:0] load_voice;
 
     multi_voice_player dut (
         .clk(clk),
@@ -65,8 +65,8 @@ module multi_voice_player_tb;
         input [5:0] note_value;
         input [5:0] duration_value;
         input [2:0] meta_value;
-        input [3:0] expected_active;
-        input [3:0] expected_load;
+        input [2:0] expected_active;
+        input [2:0] expected_load;
         begin
             @(negedge clk);
             note_in = note_value;
@@ -82,7 +82,7 @@ module multi_voice_player_tb;
             schedule_note = 1'b0;
             @(posedge clk);
             #1;
-            if (load_voice !== 4'b0000) begin
+            if (load_voice !== 3'b000) begin
                 fail("load_voice should be a one-cycle pulse");
             end
         end
@@ -98,13 +98,26 @@ module multi_voice_player_tb;
     task check_mix_matches_internal;
         integer mix_sum;
         integer expected_out;
+        integer active_count;
         begin
             mix_sum = 0;
+            active_count = 0;
             if (voices_active[0]) mix_sum = mix_sum + sample_to_int(dut.voice0);
+            if (voices_active[0]) active_count = active_count + 1;
             if (voices_active[1]) mix_sum = mix_sum + sample_to_int(dut.voice1);
+            if (voices_active[1]) active_count = active_count + 1;
             if (voices_active[2]) mix_sum = mix_sum + sample_to_int(dut.voice2);
-            if (voices_active[3]) mix_sum = mix_sum + sample_to_int(dut.voice3);
-            expected_out = mix_sum >>> 2;
+            if (voices_active[2]) active_count = active_count + 1;
+
+            if (active_count == 0) begin
+                expected_out = 0;
+            end else if (active_count == 1) begin
+                expected_out = mix_sum;
+            end else if (active_count == 2) begin
+                expected_out = mix_sum >>> 1;
+            end else begin
+                expected_out = mix_sum / 3;
+            end
 
             if ($signed(out) !== expected_out[15:0]) begin
                 fail("output mix does not match the internal voice sum");
@@ -131,45 +144,40 @@ module multi_voice_player_tb;
         @(posedge clk);
         #1;
 
-        if (voices_active !== 4'b0000 || load_voice !== 4'b0000 || out !== 16'd0) begin
+        if (voices_active !== 3'b000 || load_voice !== 3'b000 || out !== 16'd0) begin
             fail("reset did not clear the multi_voice_player state");
         end
 
-        schedule_note_and_check(6'd10, 6'd4, 3'd1, 4'b0001, 4'b0001);
+        schedule_note_and_check(6'd10, 6'd4, 3'd1, 3'b001, 3'b001);
         if (dut.note0 !== 6'd10 || dut.dur0 !== 6'd4 || dut.meta0 !== 3'd1) begin
             fail("voice 0 did not capture the first scheduled note");
         end
 
-        schedule_note_and_check(6'd12, 6'd1, 3'd2, 4'b0011, 4'b0010);
+        schedule_note_and_check(6'd12, 6'd1, 3'd2, 3'b011, 3'b010);
         if (dut.note1 !== 6'd12 || dut.dur1 !== 6'd1 || dut.meta1 !== 3'd2) begin
             fail("voice 1 did not capture the second scheduled note");
         end
 
-        schedule_note_and_check(6'd14, 6'd6, 3'd3, 4'b0111, 4'b0100);
+        schedule_note_and_check(6'd14, 6'd6, 3'd3, 3'b111, 3'b100);
         if (dut.note2 !== 6'd14 || dut.dur2 !== 6'd6 || dut.meta2 !== 3'd3) begin
             fail("voice 2 did not capture the third scheduled note");
         end
 
-        schedule_note_and_check(6'd16, 6'd7, 3'd4, 4'b1111, 4'b1000);
-        if (dut.note3 !== 6'd16 || dut.dur3 !== 6'd7 || dut.meta3 !== 3'd4) begin
-            fail("voice 3 did not capture the fourth scheduled note");
-        end
-
         @(negedge clk);
-        note_in = 6'd18;
-        duration = 6'd8;
-        meta = 3'd5;
+        note_in = 6'd16;
+        duration = 6'd7;
+        meta = 3'd4;
         schedule_note = 1'b1;
         @(posedge clk);
         #1;
-        if (voices_active !== 4'b1111 || load_voice !== 4'b0000) begin
+        if (voices_active !== 3'b111 || load_voice !== 3'b000) begin
             fail("full voice set should not allocate an extra voice");
         end
         @(negedge clk);
         schedule_note = 1'b0;
 
         pulse_tick48th();
-        if (dut.dur0 !== 6'd3 || dut.dur1 !== 6'd0 || dut.dur2 !== 6'd5 || dut.dur3 !== 6'd6) begin
+        if (dut.dur0 !== 6'd3 || dut.dur1 !== 6'd0 || dut.dur2 !== 6'd5) begin
             fail("tick48th did not decrement all active durations");
         end
 
@@ -188,7 +196,7 @@ module multi_voice_player_tb;
             @(posedge clk);
             #1;
             if ($signed(dut.voice0) < 0 || $signed(dut.voice1) < 0 ||
-                $signed(dut.voice2) < 0 || $signed(dut.voice3) < 0) begin
+                $signed(dut.voice2) < 0) begin
                 saw_negative_dyn = 1'b1;
                 check_mix_matches_internal();
             end
@@ -205,11 +213,11 @@ module multi_voice_player_tb;
             wait_cycles = wait_cycles + 1;
         end
 
-        if (voices_active !== 4'b1101 || dut.dur1 !== 6'd0) begin
+        if (voices_active !== 3'b101 || dut.dur1 !== 6'd0) begin
             fail("voice 1 did not release after note completion");
         end
 
-        schedule_note_and_check(6'd20, 6'd9, 3'd6, 4'b1111, 4'b0010);
+        schedule_note_and_check(6'd20, 6'd9, 3'd6, 3'b111, 3'b010);
         if (dut.note1 !== 6'd20 || dut.dur1 !== 6'd9 || dut.meta1 !== 3'd6) begin
             fail("freed voice slot was not reused by the next note");
         end

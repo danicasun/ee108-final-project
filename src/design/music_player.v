@@ -27,7 +27,7 @@ module music_player(
     output wire [15:0] sample_out
 );
     parameter BEAT_COUNT = 1000;
-    parameter EFFECTS_NUM_VOICES = 4;
+    parameter EFFECTS_NUM_VOICES = 3;
     parameter EFFECTS_PAN_WIDTH = 3;
     parameter EFFECTS_ECHO_ADDR_WIDTH = 15;
     parameter EFFECTS_ECHO_DELAY_SAMPLES = 15'd6000;
@@ -89,10 +89,10 @@ module music_player(
     wire generate_next_sample_raw;
     wire [15:0] dry_sample_raw;
     wire voice_sample_ready;
-    wire [3:0] voices_active;
-    wire [3:0] load_voice;
+    wire [2:0] voices_active;
+    wire [2:0] load_voice;
     wire [EFFECTS_NUM_VOICES*16-1:0] voice_samples_packed;
-    reg [3:0] effects_voice_active;
+    reg [2:0] effects_voice_active;
     reg [EFFECTS_NUM_VOICES*16-1:0] effects_voice_samples;
 
     multi_voice_player multi_voice_player(
@@ -110,7 +110,6 @@ module music_player(
         .note0(),
         .note1(),
         .note2(),
-        .note3(),
         .load_voice(load_voice),
         .voice_samples_packed(voice_samples_packed)
     );
@@ -121,7 +120,7 @@ module music_player(
     wire [15:0] mixed_sample_left;
     wire [15:0] mixed_sample_right;
     reg [1:0] sample_ready_pipe;
-    wire voices_silent = (voices_active == 4'd0);
+    wire voices_silent = (voices_active == 3'd0);
     wire capture_effects_inputs = voices_silent ? generate_next_sample : voice_sample_ready;
     wire effects_sample_tick = sample_ready_pipe[0];
     wire latch_mixed_sample = sample_ready_pipe[1];
@@ -129,7 +128,7 @@ module music_player(
     always @(posedge clk) begin
         if (reset | reset_player) begin
             sample_ready_pipe <= 2'b00;
-            effects_voice_active <= 4'd0;
+            effects_voice_active <= 3'd0;
             effects_voice_samples <= {(EFFECTS_NUM_VOICES*16){1'b0}};
         end else begin
             sample_ready_pipe <= {sample_ready_pipe[0], capture_effects_inputs};
