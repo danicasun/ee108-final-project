@@ -24,14 +24,18 @@ module multi_voice_player(
                 if (shifted_note <= 7'd63) begin
                     chord_tone = shifted_note[5:0];
                 end else begin
-                    chord_tone = shifted_note[5:0] - 6'd12;
+                    chord_tone = 6'd0;
                 end
             end
         end
     endfunction
 
-    wire [5:0] third_note = chord_tone(note_to_load, 6'd4);
-    wire [5:0] fifth_note = chord_tone(note_to_load, 6'd7);
+    // Spread low-register chords upward so the bass stays clear.
+    wire low_register_note = (note_to_load != 6'd0) && (note_to_load < 6'd28);
+    wire [5:0] third_interval = low_register_note ? 6'd16 : 6'd4;
+    wire [5:0] fifth_interval = low_register_note ? 6'd19 : 6'd7;
+    wire [5:0] third_note = chord_tone(note_to_load, third_interval);
+    wire [5:0] fifth_note = chord_tone(note_to_load, fifth_interval);
 
     wire [15:0] root_sample_u;
     wire [15:0] third_sample_u;
