@@ -39,6 +39,7 @@ module song_reader(
     
     always @(posedge clk) begin
         if (reset) begin
+            //zero everything goto WAIT_DONE
             state <= WAIT_DONE;
             song_q <= song;
             song_addr <= {song, 5'd0}; 

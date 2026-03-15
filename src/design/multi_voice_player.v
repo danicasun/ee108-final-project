@@ -30,8 +30,8 @@ module multi_voice_player(
         end
     endfunction
 
-    // Spread low-register chords upward so the bass stays clear.
-    // For very low notes, drop the third entirely and keep only a very light fifth.
+    //found that low registers are rlly staticky - a small fix here
+    //adjusted these values by listening (tldr this took a long time)
     wire low_register_note = (note_to_load != 6'd0) && (note_to_load < 6'd28);
     wire very_low_register_note = (note_to_load != 6'd0) && (note_to_load < 6'd20);
     wire [5:0] third_interval = low_register_note ? 6'd16 : 6'd4;
@@ -95,7 +95,7 @@ module multi_voice_player(
     wire signed [15:0] third_sample = $signed(third_sample_u);
     wire signed [15:0] fifth_sample = $signed(fifth_sample_u);
 
-    // Keep the root dominant and thin out low-register harmony voices.
+    //again some manual modifications for low sounds
     wire signed [15:0] third_sample_scaled =
         very_low_register_note ? 16'sd0 :
         low_register_note ? (third_sample >>> 3) :
