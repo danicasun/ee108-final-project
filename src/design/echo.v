@@ -15,11 +15,14 @@ module echo #(
     function signed [15:0] clip_sample;
         input signed [17:0] value;
         begin
+            //if val to positive to fit in 16 bits, saturate
             if (value > 18'sd32767) begin
                 clip_sample = 16'sh7fff;
+            //too neg, saturate to most neg 16b val
             end else if (value < -18'sd32768) begin
                 clip_sample = 16'sh8000;
             end else begin
+                //keep low 16
                 clip_sample = value[15:0];
             end
         end
