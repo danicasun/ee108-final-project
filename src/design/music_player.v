@@ -77,7 +77,7 @@ module music_player(
 
 //   
 //  ****************************************************************************
-//      Note Player
+//      Multi Voice Player
 //  ****************************************************************************
 //  
     wire beat;
@@ -90,7 +90,7 @@ module music_player(
     dffr #(.WIDTH(16)) pipeline_ff_note_sample (.clk(clk), .r(reset), .d(note_sample0), .q(note_sample));
     dffr pipeline_ff_new_sample_ready (.clk(clk), .r(reset), .d(note_sample_ready0), .q(note_sample_ready));
 
-    note_player note_player(
+    multi_voice_player multi_voice_player(
         .clk(clk),
         .reset(reset),
         .play_enable(play),
