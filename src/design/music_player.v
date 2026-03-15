@@ -145,6 +145,7 @@ module music_player(
         .NUM_VOICES(EFFECTS_NUM_VOICES),
         .SAMPLE_WIDTH(16),
         .PAN_WIDTH(EFFECTS_PAN_WIDTH),
+        .MIX_SHIFT(2),
         .ENABLE_PANNING(0),
         .ECHO_ADDR_WIDTH(EFFECTS_ECHO_ADDR_WIDTH)
     ) effects_mixer (
@@ -175,7 +176,7 @@ module music_player(
     beat_generator #(.WIDTH(10), .STOP(BEAT_COUNT)) beat_generator(
         .clk(clk),
         .reset(reset | reset_player),
-        .en(generate_next_sample),
+        .en(generate_next_sample && play),
         .beat(tick_48th)
     );
 
