@@ -46,7 +46,7 @@ module note_player(
 
     wire [19:0] effective_step_size = play_enable ? step_size_from_rom : 20'd0;
 
-    sine_reader sine_gen (
+    harmonics harmonic_gen (
         .clk(clk),
         .reset(reset),
         .step_size(effective_step_size),
