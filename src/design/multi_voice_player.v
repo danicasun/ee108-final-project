@@ -31,10 +31,12 @@ module multi_voice_player(
     endfunction
 
     // Spread low-register chords upward so the bass stays clear.
+    // For very low notes, drop the third entirely and keep only a very light fifth.
     wire low_register_note = (note_to_load != 6'd0) && (note_to_load < 6'd28);
+    wire very_low_register_note = (note_to_load != 6'd0) && (note_to_load < 6'd20);
     wire [5:0] third_interval = low_register_note ? 6'd16 : 6'd4;
     wire [5:0] fifth_interval = low_register_note ? 6'd19 : 6'd7;
-    wire [5:0] third_note = chord_tone(note_to_load, third_interval);
+    wire [5:0] third_note = very_low_register_note ? 6'd0 : chord_tone(note_to_load, third_interval);
     wire [5:0] fifth_note = chord_tone(note_to_load, fifth_interval);
 
     wire [15:0] root_sample_u;
@@ -94,8 +96,14 @@ module multi_voice_player(
     wire signed [15:0] fifth_sample = $signed(fifth_sample_u);
 
     // Keep the root dominant and thin out low-register harmony voices.
-    wire signed [15:0] third_sample_scaled = low_register_note ? (third_sample >>> 2) : (third_sample >>> 1);
-    wire signed [15:0] fifth_sample_scaled = low_register_note ? (fifth_sample >>> 2) : (fifth_sample >>> 1);
+    wire signed [15:0] third_sample_scaled =
+        very_low_register_note ? 16'sd0 :
+        low_register_note ? (third_sample >>> 3) :
+        (third_sample >>> 1);
+    wire signed [15:0] fifth_sample_scaled =
+        very_low_register_note ? (fifth_sample >>> 3) :
+        low_register_note ? (fifth_sample >>> 2) :
+        (fifth_sample >>> 1);
     wire signed [17:0] mixed_sum = root_sample + third_sample_scaled + fifth_sample_scaled;
     wire signed [15:0] mixed_sample = mixed_sum >>> 1;
 
