@@ -163,10 +163,10 @@ module music_player(
 
     dffr pipeline_ff_nsg (.clk(clk), .r(reset), .d(new_sample_generated0), .q(new_sample_generated));
     assign sample_out = sample_out0;
-    assign sample_out_right = $signed(sample_out0) >>> 1;
+    assign sample_out_right = sample_out0;
 
     assign new_sample_generated0 = generate_next_sample;
-    codec_conditioner codec_conditioner(
+    codec_conditioner codec_conditioner_left(
         .clk(clk),
         .reset(reset),
         .new_sample_in(echoed_sample),
