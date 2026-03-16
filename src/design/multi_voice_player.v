@@ -17,6 +17,19 @@ module multi_voice_player(
     output new_sample_ready
 );
 
+    function [15:0] clip_sample;
+        input signed [17:0] value;
+        begin
+            if (value > 18'sd32767) begin
+                clip_sample = 16'h7fff;
+            end else if (value < -18'sd32768) begin
+                clip_sample = 16'h8000;
+            end else begin
+                clip_sample = value[15:0];
+            end
+        end
+    endfunction
+
     function [5:0] chord_tone;
         input [5:0] root_note;
         input [5:0] interval;
@@ -109,26 +122,29 @@ module multi_voice_player(
         very_low_register_note ? (fifth_sample >>> 3) :
         low_register_note ? (fifth_sample >>> 2) :
         (fifth_sample >>> 1);
-    wire signed [17:0] mixed_sum = root_sample + third_sample_scaled + fifth_sample_scaled;
-    wire signed [15:0] mixed_sample = mixed_sum >>> 1;
+    wire signed [17:0] root_sample_ext = {{2{root_sample[15]}}, root_sample};
+    wire signed [17:0] third_sample_scaled_ext = {{2{third_sample_scaled[15]}}, third_sample_scaled};
+    wire signed [17:0] fifth_sample_scaled_ext = {{2{fifth_sample_scaled[15]}}, fifth_sample_scaled};
+    wire signed [17:0] mixed_sum = root_sample_ext + third_sample_scaled_ext + fifth_sample_scaled_ext;
+    wire signed [17:0] mixed_sample_scaled = mixed_sum >>> 1;
     wire signed [17:0] left_sum =
-        (root_sample >>> 1) +
-        third_sample_scaled +
-        (fifth_sample_scaled >>> 2);
+        (root_sample_ext >>> 1) +
+        third_sample_scaled_ext +
+        (fifth_sample_scaled_ext >>> 2);
     wire signed [17:0] right_sum =
-        (root_sample >>> 1) +
-        (third_sample_scaled >>> 2) +
-        fifth_sample_scaled;
-    wire signed [15:0] left_sample = left_sum >>> 1;
-    wire signed [15:0] right_sample = right_sum >>> 1;
+        (root_sample_ext >>> 1) +
+        (third_sample_scaled_ext >>> 2) +
+        fifth_sample_scaled_ext;
+    wire signed [17:0] left_sample_scaled = left_sum >>> 1;
+    wire signed [17:0] right_sample_scaled = right_sum >>> 1;
 
     assign done_with_note = root_done;
     assign new_sample_ready = root_ready & third_ready & fifth_ready;
     assign voice_root_sample = root_sample;
     assign voice_third_sample = third_sample_scaled;
     assign voice_fifth_sample = fifth_sample_scaled;
-    assign left_sample_out = left_sample;
-    assign right_sample_out = right_sample;
-    assign sample_out = mixed_sample;
+    assign left_sample_out = clip_sample(left_sample_scaled);
+    assign right_sample_out = clip_sample(right_sample_scaled);
+    assign sample_out = clip_sample(mixed_sample_scaled);
 
 endmodule

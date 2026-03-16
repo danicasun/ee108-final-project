@@ -66,7 +66,9 @@ module echo #(
         end
     end
 
-    wire signed [17:0] mixed_sample = dry_sample_reg + (delayed_sample_reg >>> ATTENUATION_SHIFT);
+    wire signed [17:0] dry_sample_ext = {{2{dry_sample_reg[15]}}, dry_sample_reg};
+    wire signed [17:0] delayed_sample_ext = {{2{delayed_sample_reg[15]}}, delayed_sample_reg};
+    wire signed [17:0] mixed_sample = dry_sample_ext + (delayed_sample_ext >>> ATTENUATION_SHIFT);
 
     assign sample_out = clip_sample(mixed_sample);
     assign sample_valid_out = sample_valid_reg;
