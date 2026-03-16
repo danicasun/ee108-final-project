@@ -117,6 +117,7 @@ module wave_display_top(
     wire root_preview_ready;
     wire third_preview_ready;
     wire fifth_preview_ready;
+    wire preview_reset = reset | song_change | display_new_note;
 
     frequency_rom root_freq_rom(
         .clk(clk),
@@ -136,39 +137,42 @@ module wave_display_top(
         .dout(fifth_step_size)
     );
 
-    harmonics root_preview(
+    sine_reader root_preview(
         .clk(clk),
-        .reset(reset | song_change),
+        .reset(preview_reset),
         .step_size(root_step_size),
         .generate_next(new_sample),
         .sample_ready(root_preview_ready),
         .sample(root_preview_raw)
     );
 
-    harmonics third_preview(
+    sine_reader third_preview(
         .clk(clk),
-        .reset(reset | song_change),
+        .reset(preview_reset),
         .step_size(third_step_size),
         .generate_next(new_sample),
         .sample_ready(third_preview_ready),
         .sample(third_preview_raw)
     );
 
-    harmonics fifth_preview(
+    sine_reader fifth_preview(
         .clk(clk),
-        .reset(reset | song_change),
+        .reset(preview_reset),
         .step_size(fifth_step_size),
         .generate_next(new_sample),
         .sample_ready(fifth_preview_ready),
         .sample(fifth_preview_raw)
     );
 
-    wire signed [15:0] root_preview_sample = $signed(root_preview_raw) >>> 1;
+    wire signed [15:0] root_preview_sample =
+        (active_root_note == 6'd0) ? 16'sd0 : ($signed(root_preview_raw) >>> 1);
     wire signed [15:0] third_preview_sample =
+        (active_third_note == 6'd0) ? 16'sd0 :
         very_low_register_note ? 16'sd0 :
         low_register_note ? ($signed(third_preview_raw) >>> 3) >>> 1 :
         ($signed(third_preview_raw) >>> 1) >>> 1;
     wire signed [15:0] fifth_preview_sample =
+        (active_fifth_note == 6'd0) ? 16'sd0 :
         very_low_register_note ? ($signed(fifth_preview_raw) >>> 3) >>> 1 :
         low_register_note ? ($signed(fifth_preview_raw) >>> 2) >>> 1 :
         ($signed(fifth_preview_raw) >>> 1) >>> 1;
