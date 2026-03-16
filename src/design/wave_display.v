@@ -8,6 +8,9 @@ module wave_display (
     input valid,
     input [7:0] read_value,
     input read_index,
+    input [7:0] trace_r,
+    input [7:0] trace_g,
+    input [7:0] trace_b,
     output wire [8:0] read_address,
     output wire valid_pixel,
     output wire [7:0] r,
@@ -130,8 +133,8 @@ module wave_display (
 
     assign valid_pixel = pixel_on;
 
-    assign r = pixel_on ? 8'hFF : 8'h00;
-    assign g = pixel_on ? 8'hFF : 8'h00;
-    assign b = pixel_on ? 8'hFF : 8'h00;
+    assign r = pixel_on ? trace_r : 8'h00;
+    assign g = pixel_on ? trace_g : 8'h00;
+    assign b = pixel_on ? trace_b : 8'h00;
 
 endmodule
