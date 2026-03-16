@@ -92,11 +92,16 @@ module music_player(
 //      Multi Voice Player
 //  ****************************************************************************
 //  
-    function [15:0] stereo_blend;
-        input signed [15:0] current_sample;
-        input signed [15:0] previous_sample;
+    function [15:0] clip_sample;
+        input signed [17:0] value;
         begin
-            stereo_blend = (current_sample >>> 1) + (previous_sample >>> 1);
+            if (value > 18'sd32767) begin
+                clip_sample = 16'h7fff;
+            end else if (value < -18'sd32768) begin
+                clip_sample = 16'h8000;
+            end else begin
+                clip_sample = value[15:0];
+            end
         end
     endfunction
 
@@ -105,14 +110,27 @@ module music_player(
     wire signed [15:0] voice_root_sample0;
     wire signed [15:0] voice_third_sample0;
     wire signed [15:0] voice_fifth_sample0;
+    wire [15:0] left_note_sample, left_note_sample0;
+    wire [15:0] right_note_sample, right_note_sample0;
     wire [15:0] note_sample, note_sample0;
     wire note_sample_ready, note_sample_ready0;
     wire [15:0] echoed_sample;
     wire echoed_sample_ready;
-    reg signed [15:0] previous_output_sample;
+    wire [15:0] stereo_sample_right;
+    wire signed [16:0] wet_component =
+        $signed({echoed_sample[15], echoed_sample}) -
+        $signed({note_sample[15], note_sample});
+    wire signed [17:0] left_mix =
+        $signed({left_note_sample[15], left_note_sample[15], left_note_sample}) +
+        $signed({wet_component[16], wet_component});
+    wire signed [17:0] right_mix =
+        $signed({right_note_sample[15], right_note_sample[15], right_note_sample}) +
+        $signed({wet_component[16], wet_component});
 
     // These pipeline registers were added to decrease the length of the critical path!
     dffr pipeline_ff_gen_next_sample (.clk(clk), .r(reset), .d(generate_next_sample0), .q(generate_next_sample));
+    dffr #(.WIDTH(16)) pipeline_ff_left_note_sample (.clk(clk), .r(reset), .d(left_note_sample0), .q(left_note_sample));
+    dffr #(.WIDTH(16)) pipeline_ff_right_note_sample (.clk(clk), .r(reset), .d(right_note_sample0), .q(right_note_sample));
     dffr #(.WIDTH(16)) pipeline_ff_note_sample (.clk(clk), .r(reset), .d(note_sample0), .q(note_sample));
     dffr pipeline_ff_new_sample_ready (.clk(clk), .r(reset), .d(note_sample_ready0), .q(note_sample_ready));
 
@@ -129,8 +147,8 @@ module music_player(
         .voice_root_sample(voice_root_sample0),
         .voice_third_sample(voice_third_sample0),
         .voice_fifth_sample(voice_fifth_sample0),
-        .left_sample_out(),
-        .right_sample_out(),
+        .left_sample_out(left_note_sample0),
+        .right_sample_out(right_note_sample0),
         .sample_out(note_sample0),
         .new_sample_ready(note_sample_ready0)
     );
@@ -169,13 +187,15 @@ module music_player(
 //  
     wire new_sample_generated0;
     wire [15:0] sample_out0;
+    wire [15:0] sample_out1;
 
     dffr pipeline_ff_nsg (.clk(clk), .r(reset), .d(new_sample_generated0), .q(new_sample_generated));
     assign sample_out = sample_out0;
-    assign sample_out_right = stereo_blend($signed(sample_out0), previous_output_sample);
+    assign sample_out_right = sample_out1;
+    assign stereo_sample_right = clip_sample(right_mix);
 
     assign new_sample_generated0 = generate_next_sample;
-    codec_conditioner codec_conditioner(
+    codec_conditioner codec_conditioner_left(
         .clk(clk),
         .reset(reset),
         .new_sample_in(echoed_sample),
@@ -185,13 +205,15 @@ module music_player(
         .valid_sample(sample_out0)
     );
 
-    always @(posedge clk) begin
-        if (reset) begin
-            previous_output_sample <= 16'sd0;
-        end else if (new_sample_generated0) begin
-            previous_output_sample <= $signed(sample_out0);
-        end
-    end
+    codec_conditioner codec_conditioner_right(
+        .clk(clk),
+        .reset(reset),
+        .new_sample_in(stereo_sample_right),
+        .latch_new_sample_in(echoed_sample_ready),
+        .generate_next_sample(),
+        .new_frame(new_frame),
+        .valid_sample(sample_out1)
+    );
 
     assign display_song = current_song;
     assign display_note = note_to_play;
