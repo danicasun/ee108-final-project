@@ -125,26 +125,26 @@ module multi_voice_player(
     wire signed [17:0] root_sample_ext = {{2{root_sample[15]}}, root_sample};
     wire signed [17:0] third_sample_scaled_ext = {{2{third_sample_scaled[15]}}, third_sample_scaled};
     wire signed [17:0] fifth_sample_scaled_ext = {{2{fifth_sample_scaled[15]}}, fifth_sample_scaled};
-    wire signed [17:0] mixed_sum = root_sample_ext + third_sample_scaled_ext + fifth_sample_scaled_ext;
-    wire signed [17:0] mixed_sample_scaled = mixed_sum >>> 1;
-    wire signed [17:0] left_sum =
-        (root_sample_ext >>> 1) +
-        third_sample_scaled_ext +
-        (fifth_sample_scaled_ext >>> 2);
-    wire signed [17:0] right_sum =
+    wire signed [17:0] mixed_sum =
         (root_sample_ext >>> 1) +
         (third_sample_scaled_ext >>> 2) +
-        fifth_sample_scaled_ext;
-    wire signed [17:0] left_sample_scaled = left_sum >>> 1;
-    wire signed [17:0] right_sample_scaled = right_sum >>> 1;
+        (fifth_sample_scaled_ext >>> 2);
+    wire signed [17:0] left_sum =
+        (root_sample_ext >>> 1) +
+        (third_sample_scaled_ext >>> 2) +
+        (fifth_sample_scaled_ext >>> 3);
+    wire signed [17:0] right_sum =
+        (root_sample_ext >>> 1) +
+        (third_sample_scaled_ext >>> 3) +
+        (fifth_sample_scaled_ext >>> 2);
 
     assign done_with_note = root_done;
     assign new_sample_ready = root_ready & third_ready & fifth_ready;
     assign voice_root_sample = root_sample;
     assign voice_third_sample = third_sample_scaled;
     assign voice_fifth_sample = fifth_sample_scaled;
-    assign left_sample_out = clip_sample(left_sample_scaled);
-    assign right_sample_out = clip_sample(right_sample_scaled);
-    assign sample_out = clip_sample(mixed_sample_scaled);
+    assign left_sample_out = clip_sample(left_sum);
+    assign right_sample_out = clip_sample(right_sum);
+    assign sample_out = clip_sample(mixed_sum);
 
 endmodule

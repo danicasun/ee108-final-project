@@ -7,6 +7,19 @@ module harmonics(
     output [15:0] sample
 );
 
+    function [15:0] clip_sample;
+        input signed [17:0] value;
+        begin
+            if (value > 18'sd32767) begin
+                clip_sample = 16'h7fff;
+            end else if (value < -18'sd32768) begin
+                clip_sample = 16'h8000;
+            end else begin
+                clip_sample = value[15:0];
+            end
+        end
+    endfunction
+
     localparam integer FUNDAMENTAL_SHIFT = 1;
     localparam integer SECOND_SHIFT = 2;
     localparam integer THIRD_SHIFT = 3;
@@ -64,12 +77,15 @@ module harmonics(
         low_fundamental ? (second_sample >>> LOW_SECOND_SHIFT) :
         (second_sample >>> SECOND_SHIFT);
     wire signed [15:0] third_contribution = low_fundamental ? 16'sd0 : (third_sample >>> THIRD_SHIFT);
+    wire signed [17:0] fundamental_sample_ext = {{2{fundamental_sample[15]}}, fundamental_sample};
+    wire signed [17:0] second_contribution_ext = {{2{second_contribution[15]}}, second_contribution};
+    wire signed [17:0] third_contribution_ext = {{2{third_contribution[15]}}, third_contribution};
     wire signed [17:0] harmonic_mix =
-        (fundamental_sample >>> FUNDAMENTAL_SHIFT) +
-        second_contribution +
-        third_contribution;
+        (fundamental_sample_ext >>> FUNDAMENTAL_SHIFT) +
+        second_contribution_ext +
+        third_contribution_ext;
 
     assign sample_ready = fundamental_ready & second_ready & third_ready;
-    assign sample = harmonic_mix[15:0];
+    assign sample = clip_sample(harmonic_mix);
 
 endmodule
