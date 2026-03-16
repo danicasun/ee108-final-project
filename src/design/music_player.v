@@ -92,23 +92,28 @@ module music_player(
 //      Multi Voice Player
 //  ****************************************************************************
 //  
+    function [15:0] stereo_blend;
+        input signed [15:0] current_sample;
+        input signed [15:0] previous_sample;
+        begin
+            stereo_blend = (current_sample >>> 1) + (previous_sample >>> 1);
+        end
+    endfunction
+
     wire beat;
     wire generate_next_sample, generate_next_sample0;
     wire signed [15:0] voice_root_sample0;
     wire signed [15:0] voice_third_sample0;
     wire signed [15:0] voice_fifth_sample0;
-    wire [15:0] left_note_sample, left_note_sample0;
-    wire [15:0] right_note_sample, right_note_sample0;
+    wire [15:0] note_sample, note_sample0;
     wire note_sample_ready, note_sample_ready0;
-    wire [15:0] echoed_sample_left;
-    wire [15:0] echoed_sample_right;
-    wire echoed_sample_ready_left;
-    wire echoed_sample_ready_right;
+    wire [15:0] echoed_sample;
+    wire echoed_sample_ready;
+    reg signed [15:0] previous_output_sample;
 
     // These pipeline registers were added to decrease the length of the critical path!
     dffr pipeline_ff_gen_next_sample (.clk(clk), .r(reset), .d(generate_next_sample0), .q(generate_next_sample));
-    dffr #(.WIDTH(16)) pipeline_ff_left_note_sample (.clk(clk), .r(reset), .d(left_note_sample0), .q(left_note_sample));
-    dffr #(.WIDTH(16)) pipeline_ff_right_note_sample (.clk(clk), .r(reset), .d(right_note_sample0), .q(right_note_sample));
+    dffr #(.WIDTH(16)) pipeline_ff_note_sample (.clk(clk), .r(reset), .d(note_sample0), .q(note_sample));
     dffr pipeline_ff_new_sample_ready (.clk(clk), .r(reset), .d(note_sample_ready0), .q(note_sample_ready));
 
     multi_voice_player multi_voice_player(
@@ -124,34 +129,22 @@ module music_player(
         .voice_root_sample(voice_root_sample0),
         .voice_third_sample(voice_third_sample0),
         .voice_fifth_sample(voice_fifth_sample0),
-        .left_sample_out(left_note_sample0),
-        .right_sample_out(right_note_sample0),
-        .sample_out(),
+        .left_sample_out(),
+        .right_sample_out(),
+        .sample_out(note_sample0),
         .new_sample_ready(note_sample_ready0)
     );
 
     echo #(
         .DELAY_SAMPLES(12000),
         .ATTENUATION_SHIFT(2)
-    ) echo_processor_left (
+    ) echo_processor (
         .clk(clk),
         .reset(reset),
-        .sample_in(left_note_sample),
+        .sample_in(note_sample),
         .sample_valid_in(note_sample_ready),
-        .sample_out(echoed_sample_left),
-        .sample_valid_out(echoed_sample_ready_left)
-    );
-
-    echo #(
-        .DELAY_SAMPLES(12000),
-        .ATTENUATION_SHIFT(2)
-    ) echo_processor_right (
-        .clk(clk),
-        .reset(reset),
-        .sample_in(right_note_sample),
-        .sample_valid_in(note_sample_ready),
-        .sample_out(echoed_sample_right),
-        .sample_valid_out(echoed_sample_ready_right)
+        .sample_out(echoed_sample),
+        .sample_valid_out(echoed_sample_ready)
     );
       
 //   
@@ -176,32 +169,29 @@ module music_player(
 //  
     wire new_sample_generated0;
     wire [15:0] sample_out0;
-    wire [15:0] sample_out1;
 
     dffr pipeline_ff_nsg (.clk(clk), .r(reset), .d(new_sample_generated0), .q(new_sample_generated));
     assign sample_out = sample_out0;
-    assign sample_out_right = sample_out1;
+    assign sample_out_right = stereo_blend($signed(sample_out0), previous_output_sample);
 
     assign new_sample_generated0 = generate_next_sample;
-    codec_conditioner codec_conditioner_left(
+    codec_conditioner codec_conditioner(
         .clk(clk),
         .reset(reset),
-        .new_sample_in(echoed_sample_left),
-        .latch_new_sample_in(echoed_sample_ready_left),
+        .new_sample_in(echoed_sample),
+        .latch_new_sample_in(echoed_sample_ready),
         .generate_next_sample(generate_next_sample0),
         .new_frame(new_frame),
         .valid_sample(sample_out0)
     );
 
-    codec_conditioner codec_conditioner_right(
-        .clk(clk),
-        .reset(reset),
-        .new_sample_in(echoed_sample_right),
-        .latch_new_sample_in(echoed_sample_ready_right),
-        .generate_next_sample(),
-        .new_frame(new_frame),
-        .valid_sample(sample_out1)
-    );
+    always @(posedge clk) begin
+        if (reset) begin
+            previous_output_sample <= 16'sd0;
+        end else if (new_sample_generated0) begin
+            previous_output_sample <= $signed(sample_out0);
+        end
+    end
 
     assign display_song = current_song;
     assign display_note = note_to_play;

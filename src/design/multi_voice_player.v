@@ -126,9 +126,9 @@ module multi_voice_player(
     wire signed [17:0] third_sample_scaled_ext = {{2{third_sample_scaled[15]}}, third_sample_scaled};
     wire signed [17:0] fifth_sample_scaled_ext = {{2{fifth_sample_scaled[15]}}, fifth_sample_scaled};
     wire signed [17:0] mixed_sum =
-        (root_sample_ext >>> 1) +
-        (third_sample_scaled_ext >>> 2) +
-        (fifth_sample_scaled_ext >>> 2);
+        root_sample_ext +
+        third_sample_scaled_ext +
+        fifth_sample_scaled_ext;
     wire signed [17:0] left_sum =
         (root_sample_ext >>> 1) +
         (third_sample_scaled_ext >>> 2) +
@@ -145,6 +145,6 @@ module multi_voice_player(
     assign voice_fifth_sample = fifth_sample_scaled;
     assign left_sample_out = clip_sample(left_sum);
     assign right_sample_out = clip_sample(right_sum);
-    assign sample_out = clip_sample(mixed_sum);
+    assign sample_out = clip_sample(mixed_sum >>> 1);
 
 endmodule
