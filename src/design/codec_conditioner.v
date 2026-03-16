@@ -52,30 +52,5 @@ module codec_conditioner(
    );
    assign generate_next_sample = new_frame && ~previous_new_frame;
 
-   // The next sample we are storing so we can output it immediately on the next
-   // new_frame.
-   wire [15:0] next_sample_latched;
-   dffre #(16) next_sample_latch(
-      .clk(clk),
-      .r(reset),
-      .en(latch_new_sample_in),
-      .d(new_sample_in),
-      .q(next_sample_latched)
-   );
-
-   // The sample we are currently outputting.
-   // We latch in the new next_sample when we get a new_frame.
-   wire [15:0] latched_current_sample;
-   dffre #(16) current_sample_latch(
-      .clk(clk),
-      .r(reset),
-      .en(generate_next_sample),
-      .d(next_sample_latched),
-      .q(latched_current_sample)
-   );
-
-   // To make sure we always output the next sample immediately when new_frame
-   // goes high we define our output to be either what we've stored or the next
-   // one.
-   assign valid_sample = (generate_next_sample) ? next_sample_latched : latched_current_sample;
+   assign valid_sample = new_frame && previous_new_frame ? valid_sample : new_sample_in;
 endmodule
