@@ -93,15 +93,10 @@ module music_player(
 //  
     wire beat;
     wire generate_next_sample, generate_next_sample0;
-<<<<<<< HEAD
     wire signed [15:0] voice_root_sample0;
     wire signed [15:0] voice_third_sample0;
     wire signed [15:0] voice_fifth_sample0;
-    wire [15:0] left_note_sample, left_note_sample0;
-    wire [15:0] right_note_sample, right_note_sample0;
-=======
     wire [15:0] note_sample, note_sample0;
->>>>>>> parent of 33105be (stereo effects)
     wire note_sample_ready, note_sample_ready0;
     wire [15:0] echoed_sample;
     wire echoed_sample_ready;
@@ -121,16 +116,10 @@ module music_player(
         .done_with_note(note_done),
         .beat(beat),
         .generate_next_sample(generate_next_sample),
-<<<<<<< HEAD
         .voice_root_sample(voice_root_sample0),
         .voice_third_sample(voice_third_sample0),
         .voice_fifth_sample(voice_fifth_sample0),
-        .left_sample_out(left_note_sample0),
-        .right_sample_out(right_note_sample0),
-        .sample_out(),
-=======
         .sample_out(note_sample0),
->>>>>>> parent of 33105be (stereo effects)
         .new_sample_ready(note_sample_ready0)
     );
 
