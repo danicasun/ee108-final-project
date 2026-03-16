@@ -14,10 +14,7 @@ module multi_voice_player(
     output [15:0] left_sample_out,
     output [15:0] right_sample_out,
     output [15:0] sample_out,
-    output new_sample_ready,
-    output signed [15:0] voice_root_sample,
-    output signed [15:0] voice_third_sample,
-    output signed [15:0] voice_fifth_sample
+    output new_sample_ready
 );
 
     function [5:0] chord_tone;
@@ -133,8 +130,5 @@ module multi_voice_player(
     assign left_sample_out = left_sample;
     assign right_sample_out = right_sample;
     assign sample_out = mixed_sample;
-    assign voice_root_sample = root_sample;
-    assign voice_third_sample = third_sample_scaled;
-    assign voice_fifth_sample = fifth_sample_scaled;
 
 endmodule
