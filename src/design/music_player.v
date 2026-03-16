@@ -30,7 +30,10 @@ module music_player(
     output wire [1:0] display_song,
     output wire [5:0] display_note,
     output wire display_new_note,
-    output wire [6:0] display_next_addr
+    output wire [6:0] display_next_addr,
+    output wire signed [15:0] display_voice_root_sample,
+    output wire signed [15:0] display_voice_third_sample,
+    output wire signed [15:0] display_voice_fifth_sample
 );
     // The BEAT_COUNT is parameterized so you can reduce this in simulation.
     // If you reduce this to 100 your simulation will be 10x faster.
@@ -91,6 +94,9 @@ module music_player(
 //  
     wire beat;
     wire generate_next_sample, generate_next_sample0;
+    wire signed [15:0] voice_root_sample0;
+    wire signed [15:0] voice_third_sample0;
+    wire signed [15:0] voice_fifth_sample0;
     wire [15:0] left_note_sample, left_note_sample0;
     wire [15:0] right_note_sample, right_note_sample0;
     wire note_sample_ready, note_sample_ready0;
@@ -115,6 +121,9 @@ module music_player(
         .done_with_note(note_done),
         .beat(beat),
         .generate_next_sample(generate_next_sample),
+        .voice_root_sample(voice_root_sample0),
+        .voice_third_sample(voice_third_sample0),
+        .voice_fifth_sample(voice_fifth_sample0),
         .left_sample_out(left_note_sample0),
         .right_sample_out(right_note_sample0),
         .sample_out(),
@@ -198,5 +207,8 @@ module music_player(
     assign display_note = note_to_play;
     assign display_new_note = new_note;
     assign display_next_addr = next_note_addr;
+    assign display_voice_root_sample = voice_root_sample0;
+    assign display_voice_third_sample = voice_third_sample0;
+    assign display_voice_fifth_sample = voice_fifth_sample0;
 
 endmodule
